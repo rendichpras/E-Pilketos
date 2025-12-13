@@ -8,7 +8,7 @@ import { admins, adminSessions } from "../../db/schema";
 import type { AppEnv } from "../../app-env";
 import { adminAuth } from "../../middlewares/adminAuth";
 import { env as appEnv } from "../../env";
-import { rateLimit, getClientIp } from "../../middlewares/rateLimit";
+import { rateLimit, getClientIp, rateLimitConfig } from "../../middlewares/rateLimit";
 import { addSeconds, createSessionToken } from "../../utils/session";
 
 const loginSchema = z.object({
@@ -21,9 +21,10 @@ export const adminAuthApp = new Hono<AppEnv>();
 adminAuthApp.post(
   "/login",
   rateLimit({
-    windowMs: appEnv.RATE_LIMIT_LOGIN_WINDOW_SEC * 1000,
+    windowSec: appEnv.RATE_LIMIT_LOGIN_WINDOW_SEC,
     max: appEnv.RATE_LIMIT_LOGIN_MAX,
-    key: (c) => `admin_login:${getClientIp(c)}`
+    prefix: rateLimitConfig.adminLogin.prefix,
+    id: (c) => getClientIp(c)
   }),
   async (c) => {
     const body = await c.req.json().catch(() => null);

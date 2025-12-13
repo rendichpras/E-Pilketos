@@ -54,11 +54,19 @@ export default async function PublicResultsPage() {
     );
   }
 
-  const { election, candidates, summary } = result.data;
-  const safeElection: Election = election;
-  const totalVotes = summary?.totalVotes ?? 0;
+  const safeElection: Election = result.data.election;
+  const totalVotes = result.data.totalVotes ?? 0;
+
+  const candidates = (result.data.results ?? []).map((r) => ({
+    candidateId: r.candidate.id,
+    number: r.candidate.number,
+    shortName: r.candidate.shortName,
+    totalVotes: r.voteCount
+  }));
+
   const maxVotes =
     candidates.length > 0 ? Math.max(...candidates.map((c) => Number(c.totalVotes || 0))) : 0;
+
   const hasVotes = totalVotes > 0;
 
   return (
@@ -79,8 +87,8 @@ export default async function PublicResultsPage() {
                   {safeElection.name}
                 </h1>
                 <p className="text-muted-foreground max-w-xl text-sm md:text-base">
-                  Rekapitulasi perolehan suara sementara untuk setiap pasangan calon. Persentase
-                  dihitung berdasarkan total suara yang sudah masuk ke sistem.
+                  Rekapitulasi perolehan suara untuk setiap pasangan calon. Persentase dihitung
+                  berdasarkan total suara yang sudah masuk ke sistem.
                 </p>
               </div>
 

@@ -7,8 +7,9 @@ type PgErr = {
   detail?: string;
 };
 
-function pickStatusFromPg(e: PgErr): number {
-  // Postgres SQLSTATE
+type ErrorStatus = 400 | 409 | 500;
+
+function pickStatusFromPg(e: PgErr): ErrorStatus {
   if (e.code === "23505") return 409; // unique_violation
   if (e.code === "23503") return 409; // foreign_key_violation
   if (e.code === "23514") return 400; // check_violation
@@ -16,7 +17,7 @@ function pickStatusFromPg(e: PgErr): number {
   return 500;
 }
 
-function safeMessage(status: number, e: PgErr): string {
+function safeMessage(status: ErrorStatus): string {
   if (status === 409) return "Konflik data (duplikat / constraint).";
   if (status === 400) return "Input tidak valid.";
   return "Terjadi kesalahan internal.";
@@ -26,7 +27,7 @@ export function onError(err: unknown, c: Context<AppEnv>): Response {
   const requestId = c.get("requestId");
   const e = err as PgErr;
 
-  const status = e?.code ? pickStatusFromPg(e) : 500;
+  const status: ErrorStatus = e?.code ? pickStatusFromPg(e) : 500;
 
   console.error(
     JSON.stringify(
@@ -51,7 +52,7 @@ export function onError(err: unknown, c: Context<AppEnv>): Response {
 
   return c.json(
     {
-      error: safeMessage(status, e),
+      error: safeMessage(status),
       requestId
     },
     status

@@ -69,44 +69,27 @@ export interface AdminTokensListResponse {
   };
 }
 
-export interface AdminResultsSummary {
-  totalTokens: number;
-  usedTokens: number;
-  unusedTokens: number;
-  invalidTokens: number;
-  totalVotes: number;
+export interface ResultsRow {
+  candidate: CandidatePair;
+  voteCount: number;
 }
 
-export interface AdminResultsCandidateRow {
-  candidateId: string;
-  number: number;
-  shortName: string;
-  ketuaName: string;
-  wakilName: string;
-  totalVotes: number;
+export interface TokenStats {
+  used: number;
+  unused: number;
+  invalidated: number;
+  total: number;
 }
 
 export interface AdminResultsResponse {
   election: Election;
-  summary: AdminResultsSummary;
-  candidates: AdminResultsCandidateRow[];
-}
-
-export interface PublicResultsSummary {
   totalVotes: number;
-}
-
-export interface PublicResultsCandidateRow {
-  candidateId: string;
-  number: number;
-  shortName: string;
-  ketuaName: string;
-  wakilName: string;
-  totalVotes: number;
+  results: ResultsRow[];
+  tokenStats: TokenStats;
 }
 
 export interface PublicResultsResponse {
   election: Election | null;
-  summary: PublicResultsSummary | null;
-  candidates: PublicResultsCandidateRow[];
+  totalVotes: number;
+  results: ResultsRow[];
 }

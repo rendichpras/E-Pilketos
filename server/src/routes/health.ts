@@ -1,53 +1,32 @@
 import { Hono } from "hono";
-import { sql } from "drizzle-orm";
 import type { AppEnv } from "../app-env";
 import { db } from "../db/client";
-import { getRedis, redisEnabled } from "../utils/redis";
+import { getRedisClient, hasRedis } from "../utils/redis";
 
 export const healthApp = new Hono<AppEnv>();
 
-healthApp.get("/", (c) =>
-  c.json({
-    status: "ok"
-  })
-);
+healthApp.get("/health", (c) => {
+  return c.json({ ok: true });
+});
 
-healthApp.get("/ready", async (c) => {
-  const now = new Date();
-
-  let dbOk = false;
-  let redisOk = false;
-
+healthApp.get("/health/ready", async (c) => {
   try {
-    await db.execute(sql`select 1 as ok`);
-    dbOk = true;
-  } catch {
-    dbOk = false;
+    await db.execute("select 1");
+  } catch (e) {
+    console.error("Health DB check failed:", e);
+    return c.json({ ok: false, reason: "db" }, 503);
   }
 
-  if (redisEnabled()) {
+  if (hasRedis()) {
     try {
-      const r = await getRedis();
-      const pong = await r.ping();
-      redisOk = pong === "PONG";
-    } catch {
-      redisOk = false;
+      const redis = await getRedisClient();
+      if (!redis) throw new Error("Redis not available");
+      await redis.ping();
+    } catch (e) {
+      console.error("Health Redis check failed:", e);
+      return c.json({ ok: false, reason: "redis" }, 503);
     }
-  } else {
-    redisOk = true;
   }
 
-  const ok = dbOk && redisOk;
-
-  return c.json(
-    {
-      status: ok ? "ready" : "not_ready",
-      time: now.toISOString(),
-      checks: {
-        db: dbOk,
-        redis: redisOk
-      }
-    },
-    ok ? 200 : 503
-  );
+  return c.json({ ok: true });
 });

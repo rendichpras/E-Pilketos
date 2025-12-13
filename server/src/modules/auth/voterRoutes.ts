@@ -6,7 +6,7 @@ import type { AppEnv } from "../../app-env";
 import { db } from "../../db/client";
 import { elections, tokens, voterSessions } from "../../db/schema";
 import { env as appEnv } from "../../env";
-import { rateLimit, getClientIp } from "../../middlewares/rateLimit";
+import { rateLimit, getClientIp, rateLimitConfig } from "../../middlewares/rateLimit";
 import { addSeconds, createSessionToken } from "../../utils/session";
 
 const tokenLoginSchema = z.object({
@@ -18,9 +18,10 @@ export const voterAuthApp = new Hono<AppEnv>();
 voterAuthApp.post(
   "/token-login",
   rateLimit({
-    windowMs: appEnv.RATE_LIMIT_TOKEN_LOGIN_WINDOW_SEC * 1000,
+    windowSec: appEnv.RATE_LIMIT_TOKEN_LOGIN_WINDOW_SEC,
     max: appEnv.RATE_LIMIT_TOKEN_LOGIN_MAX,
-    key: (c) => `voter_token_login:${getClientIp(c)}`
+    prefix: rateLimitConfig.voterTokenLogin.prefix,
+    id: (c) => getClientIp(c)
   }),
   async (c) => {
     const body = await c.req.json().catch(() => null);

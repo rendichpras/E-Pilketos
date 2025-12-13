@@ -109,10 +109,9 @@ export async function GET(req: NextRequest): Promise<Response> {
   });
 
   const pdfUint8 = (await renderToBuffer(element as any)) as Uint8Array;
-  const pdfArrayBuffer = pdfUint8.buffer.slice(
-    pdfUint8.byteOffset,
-    pdfUint8.byteOffset + pdfUint8.byteLength
-  );
+
+  const pdfArrayBuffer = new ArrayBuffer(pdfUint8.byteLength);
+  new Uint8Array(pdfArrayBuffer).set(pdfUint8);
 
   const batchPart = batch ? `-${safeSlug(batch)}` : "";
   const filename = `tokens-${electionSlug}-UNUSED${batchPart}.pdf`;

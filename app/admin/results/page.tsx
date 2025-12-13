@@ -113,6 +113,7 @@ export default function AdminResultsPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedElection = useMemo(
@@ -120,11 +121,21 @@ export default function AdminResultsPage() {
     [page.elections, page.selectedElectionId]
   );
 
-  const totalVotes = page.results?.summary.totalVotes ?? 0;
+  const totalVotes = page.results?.totalVotes ?? 0;
 
-  const sortedCandidates = useMemo(() => {
-    const cands = page.results?.candidates ?? [];
-    return cands.slice().sort((a, b) => b.totalVotes - a.totalVotes);
+  const candidateRows = useMemo(() => {
+    const rows = page.results?.results ?? [];
+    return rows
+      .map((r) => ({
+        candidateId: r.candidate.id,
+        number: r.candidate.number,
+        shortName: r.candidate.shortName,
+        ketuaName: r.candidate.ketuaName,
+        wakilName: r.candidate.wakilName,
+        totalVotes: r.voteCount
+      }))
+      .slice()
+      .sort((a, b) => b.totalVotes - a.totalVotes);
   }, [page.results]);
 
   async function onElectionChange(id: string) {
@@ -168,6 +179,8 @@ export default function AdminResultsPage() {
       </div>
     );
   }
+
+  const tokenStats = page.results?.tokenStats;
 
   return (
     <div className="space-y-6">
@@ -256,23 +269,23 @@ export default function AdminResultsPage() {
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="rounded-full text-[11px] font-medium">
                 <KeyRound className="mr-1 h-3.5 w-3.5" />
-                Token: {page.results.summary.totalTokens}
+                Token: {tokenStats?.total ?? 0}
               </Badge>
               <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-                Used: {page.results.summary.usedTokens}
+                Used: {tokenStats?.used ?? 0}
               </Badge>
               <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-                Unused: {page.results.summary.unusedTokens}
+                Unused: {tokenStats?.unused ?? 0}
               </Badge>
               <Badge
                 variant="outline"
                 className="border-destructive/60 bg-destructive/10 text-destructive rounded-full text-[11px] font-medium"
               >
-                Invalid: {page.results.summary.invalidTokens}
+                Invalid: {tokenStats?.invalidated ?? 0}
               </Badge>
               <Badge variant="outline" className="rounded-full text-[11px] font-medium">
                 <Users2 className="mr-1 h-3.5 w-3.5" />
-                Total suara: {page.results.summary.totalVotes}
+                Total suara: {page.results.totalVotes}
               </Badge>
             </div>
           ) : null}
@@ -281,33 +294,33 @@ export default function AdminResultsPage() {
         <CardContent>
           {!page.selectedElectionId ? (
             <div className="border-border/60 bg-muted/30 text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-sm">
-              Buat/pilih pemilihan terlebih dahulu untuk mengelola kandidat.
+              Buat/pilih pemilihan terlebih dahulu untuk melihat hasil.
             </div>
           ) : !page.results ? (
             <div className="space-y-3">
               <Skeleton className="h-24 w-full rounded-xl" />
               <Skeleton className="h-40 w-full rounded-xl" />
             </div>
-          ) : page.results.candidates.length === 0 ? (
+          ) : candidateRows.length === 0 ? (
             <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 text-center">
               <Trophy className="text-muted-foreground h-8 w-8" />
               <div className="space-y-1">
-                <p className="text-sm font-medium">Belum ada data hasil</p>
+                <p className="text-sm font-medium">Belum ada kandidat</p>
                 <p className="text-muted-foreground text-xs">
-                  Hasil akan muncul setelah ada voting yang masuk.
+                  Kandidat belum terdaftar untuk pemilihan ini.
                 </p>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* MOBILE: card list (tanpa overlap) */}
+              {/* MOBILE: card list */}
               <div className="sm:hidden">
                 <div className="text-muted-foreground mb-2 text-[11px]">
                   update: {fmtId(page.results.election.updatedAt)}
                 </div>
 
                 <div className="space-y-2">
-                  {sortedCandidates.map((c, idx) => {
+                  {candidateRows.map((c, idx) => {
                     const pct =
                       totalVotes > 0 ? Math.round((c.totalVotes / totalVotes) * 1000) / 10 : 0;
 
@@ -380,7 +393,7 @@ export default function AdminResultsPage() {
                   </TableHeader>
 
                   <TableBody>
-                    {sortedCandidates.map((c, idx) => {
+                    {candidateRows.map((c, idx) => {
                       const pct =
                         totalVotes > 0 ? Math.round((c.totalVotes / totalVotes) * 1000) / 10 : 0;
 

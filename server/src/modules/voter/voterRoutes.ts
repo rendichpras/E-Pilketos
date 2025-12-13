@@ -6,7 +6,7 @@ import type { AppEnv } from "../../app-env";
 import { db } from "../../db/client";
 import { elections, candidatePairs, tokens, votes, voterSessions } from "../../db/schema";
 import { voterAuth } from "../../middlewares/voterAuth";
-import { rateLimit } from "../../middlewares/rateLimit";
+import { rateLimit, getClientIp, rateLimitConfig } from "../../middlewares/rateLimit";
 import { env as appEnv } from "../../env";
 import { redactUsedToken } from "../../utils/tokenRedact";
 
@@ -51,11 +51,12 @@ voterApp.get("/candidates", async (c) => {
 voterApp.post(
   "/vote",
   rateLimit({
-    windowMs: appEnv.RATE_LIMIT_VOTE_WINDOW_SEC * 1000,
+    windowSec: appEnv.RATE_LIMIT_VOTE_WINDOW_SEC,
     max: appEnv.RATE_LIMIT_VOTE_MAX,
-    key: (c) => {
-      const v = c.get("voter");
-      return `voter_vote:${v?.tokenId ?? "unknown"}`;
+    prefix: rateLimitConfig.vote.prefix,
+    id: (c) => {
+      const v = c.get("voter") as any;
+      return v?.tokenId ? String(v.tokenId) : getClientIp(c);
     }
   }),
   async (c) => {
