@@ -4,8 +4,10 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import type { AppEnv } from "../../app-env";
 import { db } from "../../db/client";
-import { elections, tokens, auditLogs } from "../../db/schema";
+import { elections, tokens, auditLogs, voterSessions } from "../../db/schema";
 import { adminAuth } from "../../middlewares/adminAuth";
+import { requireRole } from "../../middlewares/requireRole";
+import { redactInvalidToken } from "../../utils/tokenRedact";
 
 const generateTokensSchema = z.object({
   count: z.number().int().min(1).max(10000),
@@ -29,67 +31,48 @@ function generateTokenString(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = randomBytes(8);
   const arr: string[] = [];
-
-  for (let i = 0; i < 8; i++) {
-    const idx = bytes[i] % chars.length;
-    arr.push(chars[idx]);
-  }
-
+  for (let i = 0; i < 8; i++) arr.push(chars[bytes[i] % chars.length]);
   return `${arr.slice(0, 4).join("")}-${arr.slice(4, 8).join("")}`;
 }
 
 export const adminTokensApp = new Hono<AppEnv>();
-
 adminTokensApp.use("/*", adminAuth);
 
-// POST /admin/tokens/generate/:electionId
-adminTokensApp.post("/generate/:electionId", async (c) => {
+adminTokensApp.post("/generate/:electionId", requireRole("SUPER_ADMIN"), async (c) => {
   const { electionId } = c.req.param();
 
   const [election] = await db.select().from(elections).where(eq(elections.id, electionId)).limit(1);
-
-  if (!election) {
-    return c.json({ error: "Election not found" }, 404);
+  if (election.status !== "DRAFT") {
+    return c.json({ error: "Token hanya bisa dibuat saat election masih DRAFT" }, 400);
   }
+
+  if (!election) return c.json({ error: "Election not found" }, 404);
 
   const body = await c.req.json().catch(() => null);
   const parsed = generateTokensSchema.safeParse(body);
-
-  if (!parsed.success) {
+  if (!parsed.success)
     return c.json({ error: "Invalid body", details: parsed.error.flatten() }, 400);
-  }
 
   const { count, batchLabel } = parsed.data;
   const admin = c.get("admin");
 
-  const created: (typeof tokens.$inferSelect)[] = [];
-
   await db.transaction(async (tx) => {
-    for (let i = 0; i < count; i++) {
-      let tokenStr: string;
-
-      while (true) {
-        tokenStr = generateTokenString();
-
-        const existing = await tx
-          .select({ id: tokens.id })
-          .from(tokens)
-          .where(and(eq(tokens.electionId, electionId), eq(tokens.token, tokenStr)))
-          .limit(1);
-
-        if (existing.length === 0) break;
-      }
-
-      const [inserted] = await tx
-        .insert(tokens)
-        .values({
+    let created = 0;
+    while (created < count) {
+      const tokenStr = generateTokenString();
+      try {
+        await tx.insert(tokens).values({
           electionId,
           token: tokenStr,
           generatedBatch: batchLabel
-        })
-        .returning();
-
-      created.push(inserted);
+        });
+        created += 1;
+      } catch (e: unknown) {
+        const pgErr = e as { code?: string; constraint?: string };
+        if (pgErr?.code === "23505" && pgErr?.constraint === "tokens_election_token_unique")
+          continue; // retry
+        throw e;
+      }
     }
 
     if (admin) {
@@ -97,32 +80,19 @@ adminTokensApp.post("/generate/:electionId", async (c) => {
         adminId: admin.adminId,
         electionId,
         action: "GENERATE_TOKENS",
-        metadata: {
-          count,
-          batchLabel: batchLabel ?? null
-        }
+        metadata: { count, batchLabel: batchLabel ?? null }
       });
     }
   });
 
-  return c.json(
-    {
-      electionId,
-      tokens: created
-    },
-    201
-  );
+  return c.json({ electionId, createdCount: count, batchLabel: batchLabel ?? null }, 201);
 });
 
-// GET /admin/tokens/:electionId?status=&batch=&page=&limit=
 adminTokensApp.get("/:electionId", async (c) => {
   const { electionId } = c.req.param();
 
   const [election] = await db.select().from(elections).where(eq(elections.id, electionId)).limit(1);
-
-  if (!election) {
-    return c.json({ error: "Election not found" }, 404);
-  }
+  if (!election) return c.json({ error: "Election not found" }, 404);
 
   const parsedQuery = listTokensQuerySchema.safeParse({
     status: c.req.query("status"),
@@ -131,9 +101,8 @@ adminTokensApp.get("/:electionId", async (c) => {
     limit: c.req.query("limit")
   });
 
-  if (!parsedQuery.success) {
+  if (!parsedQuery.success)
     return c.json({ error: "Invalid query", details: parsedQuery.error.flatten() }, 400);
-  }
 
   const { status, batch, page, limit } = parsedQuery.data;
 
@@ -142,14 +111,8 @@ adminTokensApp.get("/:electionId", async (c) => {
   const offset = (pageSafe - 1) * limitSafe;
 
   const conditions = [eq(tokens.electionId, electionId)];
-
-  if (status) {
-    conditions.push(eq(tokens.status, status));
-  }
-
-  if (batch) {
-    conditions.push(eq(tokens.generatedBatch, batch));
-  }
+  if (status) conditions.push(eq(tokens.status, status));
+  if (batch) conditions.push(eq(tokens.generatedBatch, batch));
 
   const whereExpr = and(...conditions);
 
@@ -162,61 +125,63 @@ adminTokensApp.get("/:electionId", async (c) => {
     .offset(offset);
 
   const [countRow] = await db
-    .select({
-      count: sql<number>`count(*)`
-    })
+    .select({ count: sql<number>`count(*)` })
     .from(tokens)
     .where(whereExpr);
-
-  const total = Number(countRow?.count ?? 0);
 
   return c.json({
     election,
     tokens: rows,
-    pagination: {
-      page: pageSafe,
-      limit: limitSafe,
-      total
-    }
+    pagination: { page: pageSafe, limit: limitSafe, total: Number(countRow?.count ?? 0) }
   });
 });
 
-// POST /admin/tokens/invalidate/:id
-adminTokensApp.post("/invalidate/:id", async (c) => {
+adminTokensApp.post("/invalidate/:id", requireRole("SUPER_ADMIN"), async (c) => {
   const { id } = c.req.param();
 
   const [current] = await db.select().from(tokens).where(eq(tokens.id, id)).limit(1);
+  if (!current) return c.json({ error: "Token not found" }, 404);
+  if (current.status === "USED") return c.json({ error: "Cannot invalidate a used token" }, 400);
 
-  if (!current) {
-    return c.json({ error: "Token not found" }, 404);
-  }
+  const [election] = await db
+    .select()
+    .from(elections)
+    .where(eq(elections.id, current.electionId))
+    .limit(1);
 
-  if (current.status === "USED") {
-    return c.json({ error: "Cannot invalidate a used token" }, 400);
+  if (!election) return c.json({ error: "Election not found" }, 404);
+
+  if (election.status !== "DRAFT") {
+    return c.json({ error: "Token hanya bisa di-invalidate saat election masih DRAFT" }, 400);
   }
 
   const admin = c.get("admin");
+  const now = new Date();
 
-  const [updated] = await db
-    .update(tokens)
-    .set({
-      status: "INVALIDATED",
-      invalidatedAt: new Date()
-    })
-    .where(eq(tokens.id, id))
-    .returning();
+  const [updated] = await db.transaction(async (tx) => {
+    const [t] = await tx
+      .update(tokens)
+      .set({
+        status: "INVALIDATED",
+        invalidatedAt: now,
+        token: redactInvalidToken(id)
+      })
+      .where(eq(tokens.id, id))
+      .returning();
 
-  if (admin) {
-    await db.insert(auditLogs).values({
-      adminId: admin.adminId,
-      electionId: updated.electionId,
-      action: "INVALIDATE_TOKEN",
-      metadata: {
-        tokenId: updated.id,
-        token: updated.token
-      }
-    });
-  }
+    await tx.delete(voterSessions).where(eq(voterSessions.tokenId, id));
+
+    if (admin) {
+      await tx.insert(auditLogs).values({
+        adminId: admin.adminId,
+        electionId: t.electionId,
+        action: "INVALIDATE_TOKEN",
+        metadata: { tokenId: t.id }
+      });
+    }
+
+    return [t] as const;
+  });
 
   return c.json(updated);
 });

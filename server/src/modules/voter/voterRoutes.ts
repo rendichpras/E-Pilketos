@@ -1,11 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, asc, eq, lte, gte } from "drizzle-orm";
-import crypto from "crypto";
+import { and, asc, eq } from "drizzle-orm";
+import { deleteCookie } from "hono/cookie";
 import type { AppEnv } from "../../app-env";
 import { db } from "../../db/client";
-import { elections, candidatePairs, tokens, votes } from "../../db/schema";
+import { elections, candidatePairs, tokens, votes, voterSessions } from "../../db/schema";
 import { voterAuth } from "../../middlewares/voterAuth";
+import { rateLimit } from "../../middlewares/rateLimit";
+import { env as appEnv } from "../../env";
+import { redactUsedToken } from "../../utils/tokenRedact";
 
 const voteSchema = z.object({
   candidatePairId: z.string().uuid()
@@ -17,9 +20,7 @@ voterApp.use("/*", voterAuth);
 
 voterApp.get("/candidates", async (c) => {
   const voter = c.get("voter");
-  if (!voter) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+  if (!voter) return c.json({ error: "Unauthorized" }, 401);
 
   const { electionId } = voter;
   const now = new Date();
@@ -44,112 +45,97 @@ voterApp.get("/candidates", async (c) => {
     .where(and(eq(candidatePairs.electionId, electionId), eq(candidatePairs.isActive, true)))
     .orderBy(asc(candidatePairs.number));
 
-  return c.json({
-    election: electionRow,
-    candidates: candidatesRows
-  });
+  return c.json({ election: electionRow, candidates: candidatesRows });
 });
 
-voterApp.post("/vote", async (c) => {
-  const voter = c.get("voter");
-  if (!voter) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+voterApp.post(
+  "/vote",
+  rateLimit({
+    windowMs: appEnv.RATE_LIMIT_VOTE_WINDOW_SEC * 1000,
+    max: appEnv.RATE_LIMIT_VOTE_MAX,
+    key: (c) => {
+      const v = c.get("voter");
+      return `voter_vote:${v?.tokenId ?? "unknown"}`;
+    }
+  }),
+  async (c) => {
+    const voter = c.get("voter");
+    if (!voter) return c.json({ error: "Unauthorized" }, 401);
 
-  const { tokenId, electionId } = voter;
-  const body = await c.req.json().catch(() => null);
-  const parsed = voteSchema.safeParse(body);
+    const { sessionToken, tokenId, electionId } = voter;
+    const body = await c.req.json().catch(() => null);
+    const parsed = voteSchema.safeParse(body);
+    if (!parsed.success)
+      return c.json({ error: "Invalid body", details: parsed.error.flatten() }, 400);
 
-  if (!parsed.success) {
-    return c.json({ error: "Invalid body", details: parsed.error.flatten() }, 400);
-  }
+    const { candidatePairId } = parsed.data;
+    const now = new Date();
 
-  const { candidatePairId } = parsed.data;
-  const now = new Date();
+    const [electionRow] = await db
+      .select()
+      .from(elections)
+      .where(eq(elections.id, electionId))
+      .limit(1);
+    if (
+      !electionRow ||
+      electionRow.status !== "ACTIVE" ||
+      !(electionRow.startAt <= now && now <= electionRow.endAt)
+    ) {
+      return c.json({ error: "Pemilihan tidak aktif atau di luar jadwal" }, 400);
+    }
 
-  const [electionRow] = await db
-    .select()
-    .from(elections)
-    .where(eq(elections.id, electionId))
-    .limit(1);
-
-  if (
-    !electionRow ||
-    electionRow.status !== "ACTIVE" ||
-    !(electionRow.startAt <= now && now <= electionRow.endAt)
-  ) {
-    return c.json({ error: "Pemilihan tidak aktif atau di luar jadwal" }, 400);
-  }
-
-  const ip = c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "";
-  const ipHash = ip && ip.length > 0 ? crypto.createHash("sha256").update(ip).digest("hex") : null;
-
-  const userAgent = c.req.header("user-agent") ?? null;
-
-  try {
-    await db.transaction(async (tx) => {
-      const [tokenRow] = await tx.select().from(tokens).where(eq(tokens.id, tokenId)).limit(1);
-
-      if (!tokenRow) {
-        throw new Error("TOKEN_NOT_FOUND");
-      }
-
-      if (tokenRow.electionId !== electionId) {
-        throw new Error("TOKEN_ELECTION_MISMATCH");
-      }
-
-      if (tokenRow.status !== "UNUSED") {
-        throw new Error("TOKEN_ALREADY_USED");
-      }
-
+    const result = await db.transaction(async (tx) => {
       const [candidateRow] = await tx
-        .select()
+        .select({ id: candidatePairs.id })
         .from(candidatePairs)
-        .where(eq(candidatePairs.id, candidatePairId))
+        .where(
+          and(
+            eq(candidatePairs.id, candidatePairId),
+            eq(candidatePairs.electionId, electionId),
+            eq(candidatePairs.isActive, true)
+          )
+        )
         .limit(1);
 
-      if (!candidateRow) {
-        throw new Error("CANDIDATE_NOT_FOUND");
-      }
+      if (!candidateRow) return { ok: false as const, error: "CANDIDATE_INVALID" as const };
 
-      if (candidateRow.electionId !== electionId) {
-        throw new Error("CANDIDATE_ELECTION_MISMATCH");
-      }
-
-      await tx.insert(votes).values({
-        electionId,
-        tokenId,
-        candidatePairId,
-        clientIpHash: ipHash ?? undefined,
-        userAgent: userAgent ?? undefined
-      });
-
-      await tx
+      const [consumed] = await tx
         .update(tokens)
         .set({
           status: "USED",
-          usedAt: new Date()
+          usedAt: now,
+          token: redactUsedToken(tokenId)
         })
-        .where(eq(tokens.id, tokenId));
+        .where(
+          and(
+            eq(tokens.id, tokenId),
+            eq(tokens.electionId, electionId),
+            eq(tokens.status, "UNUSED")
+          )
+        )
+        .returning({ id: tokens.id });
+
+      if (!consumed) return { ok: false as const, error: "TOKEN_ALREADY_USED" as const };
+
+      await tx.insert(votes).values({
+        electionId,
+        candidatePairId
+      });
+
+      await tx.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
+
+      return { ok: true as const };
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
 
-    if (message === "TOKEN_ALREADY_USED") {
-      return c.json({ error: "Token sudah digunakan untuk memilih" }, 400);
+    if (!result.ok) {
+      if (result.error === "TOKEN_ALREADY_USED")
+        return c.json({ error: "Token sudah digunakan untuk memilih" }, 400);
+      if (result.error === "CANDIDATE_INVALID")
+        return c.json({ error: "Pasangan calon tidak valid" }, 400);
+      return c.json({ error: "Gagal menyimpan suara" }, 500);
     }
 
-    if (message === "TOKEN_NOT_FOUND" || message === "TOKEN_ELECTION_MISMATCH") {
-      return c.json({ error: "Token tidak valid" }, 400);
-    }
-
-    if (message === "CANDIDATE_NOT_FOUND" || message === "CANDIDATE_ELECTION_MISMATCH") {
-      return c.json({ error: "Pasangan calon tidak valid" }, 400);
-    }
-
-    console.error("Vote error", err);
-    return c.json({ error: "Gagal menyimpan suara" }, 500);
+    deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+    return c.json({ success: true }, 201);
   }
-
-  return c.json({ success: true }, 201);
-});
+);

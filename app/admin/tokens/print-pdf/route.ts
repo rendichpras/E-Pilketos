@@ -2,7 +2,7 @@ import React from "react";
 import type { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import type { AdminTokensListResponse, TokenStatus } from "@/lib/types";
+import type { AdminTokensListResponse } from "@/lib/types";
 import { TokenSheetDocument } from "../TokenSheetDocument";
 
 export const dynamic = "force-dynamic";
@@ -37,23 +37,22 @@ export async function GET(req: NextRequest): Promise<Response> {
   const electionId = searchParams.get("electionId");
   const batch = searchParams.get("batch")?.trim() || undefined;
 
-  const statusRaw = (searchParams.get("status") || "UNUSED").toUpperCase();
-  const status: TokenStatus =
-    statusRaw === "USED" || statusRaw === "INVALIDATED" ? (statusRaw as TokenStatus) : "UNUSED";
+  // HARD-LOCK: PDF hanya untuk token UNUSED
+  const statusParam = (searchParams.get("status") || "UNUSED").toUpperCase();
+  if (statusParam !== "UNUSED") {
+    return new Response("PDF hanya bisa dibuat untuk token UNUSED.", { status: 400 });
+  }
+  const status = "UNUSED" as const;
 
   const maxTokens = clampInt(searchParams.get("max"), MAX_TOKENS_HARD_CAP, 1, MAX_TOKENS_HARD_CAP);
 
-  if (!electionId) {
-    return new Response("Missing electionId", { status: 400 });
-  }
+  if (!electionId) return new Response("Missing electionId", { status: 400 });
 
   const apiBase = getApiBase(req);
 
   const headers: HeadersInit = { Accept: "application/json" };
   const cookie = req.headers.get("cookie");
   if (cookie) (headers as any).cookie = cookie;
-  const auth = req.headers.get("authorization");
-  if (auth) (headers as any).authorization = auth;
 
   let page = 1;
   let total = Infinity;
@@ -62,7 +61,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   while (allTokens.length < Math.min(total, maxTokens)) {
     const qs = new URLSearchParams();
-    qs.set("status", status);
+    qs.set("status", "UNUSED");
     qs.set("page", String(page));
     qs.set("limit", String(LIMIT_PER_PAGE));
     if (batch) qs.set("batch", batch);
@@ -70,17 +69,12 @@ export async function GET(req: NextRequest): Promise<Response> {
     const url = `${apiBase}/admin/tokens/${electionId}?${qs.toString()}`;
 
     let data: AdminTokensListResponse;
-    try {
-      const res = await fetch(url, { headers, cache: "no-store" });
-      if (!res.ok) {
-        const text = await res.text();
-        return new Response(`Gagal mengambil data token dari server: ${text}`, { status: 500 });
-      }
-      data = (await res.json()) as AdminTokensListResponse;
-    } catch (err: any) {
-      const message = err?.message ?? "Gagal mengambil data token dari server (fetch error).";
-      return new Response(message, { status: 500 });
+    const res = await fetch(url, { headers, cache: "no-store" });
+    if (!res.ok) {
+      const text = await res.text();
+      return new Response(`Gagal mengambil data token dari server: ${text}`, { status: 500 });
     }
+    data = (await res.json()) as AdminTokensListResponse;
 
     if (!firstPageData) firstPageData = data;
 
@@ -100,13 +94,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     page += 1;
   }
 
-  if (!firstPageData) {
-    return new Response("Gagal mengambil data token.", { status: 500 });
-  }
-
-  if (!allTokens.length) {
-    return new Response("Tidak ada token untuk dibuatkan PDF.", { status: 400 });
-  }
+  if (!firstPageData) return new Response("Gagal mengambil data token.", { status: 500 });
+  if (!allTokens.length)
+    return new Response("Tidak ada token UNUSED untuk dibuatkan PDF.", { status: 400 });
 
   const electionName = firstPageData.election.name ?? "Pemilihan";
   const electionSlug = firstPageData.election.slug ?? safeSlug(electionName);
@@ -125,13 +115,14 @@ export async function GET(req: NextRequest): Promise<Response> {
   );
 
   const batchPart = batch ? `-${safeSlug(batch)}` : "";
-  const filename = `tokens-${electionSlug}-${status}${batchPart}.pdf`;
+  const filename = `tokens-${electionSlug}-UNUSED${batchPart}.pdf`;
 
   return new Response(pdfArrayBuffer, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store"
     }
   });
 }

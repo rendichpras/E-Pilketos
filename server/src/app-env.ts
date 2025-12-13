@@ -1,8 +1,9 @@
-import type { AdminJwtPayload, VoterJwtPayload } from "./utils/jwt";
+import type { AdminContext, VoterContext } from "./types/auth";
 
 export type AppEnv = {
   Variables: {
-    admin?: AdminJwtPayload;
-    voter?: VoterJwtPayload;
+    requestId?: string;
+    admin?: AdminContext;
+    voter?: VoterContext;
   };
 };

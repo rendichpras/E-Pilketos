@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { apiClient } from "@/lib/api-client";
 import type { AdminUser } from "@/lib/types";
+import { AdminProvider } from "./admin-context";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -99,8 +100,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <AdminShell admin={admin} onLogoutAction={handleLogout}>
-      {children}
-    </AdminShell>
+    <AdminProvider admin={admin}>
+      <AdminShell admin={admin} onLogoutAction={handleLogout}>
+        {children}
+      </AdminShell>
+    </AdminProvider>
   );
 }

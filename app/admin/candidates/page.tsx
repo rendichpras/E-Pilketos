@@ -79,7 +79,8 @@ import {
   Trash2,
   Save,
   CircleSlash2,
-  CheckCircle2
+  CheckCircle2,
+  ShieldAlert
 } from "lucide-react";
 
 type CandidateForm = {
@@ -154,6 +155,8 @@ export default function AdminCandidatesPage() {
     () => elections.find((e) => e.id === selectedElectionId) ?? null,
     [elections, selectedElectionId]
   );
+
+  const canEdit = Boolean(selectedElection && selectedElection.status === "DRAFT");
 
   const counts = useMemo(() => {
     const total = candidates.length;
@@ -246,18 +249,38 @@ export default function AdminCandidatesPage() {
     setQuery("");
     setTab("all");
     resetForm();
+    setSheetOpen(false);
 
     if (id) {
       await loadCandidates(id);
     }
   }
 
+  function guardDraftOnly() {
+    if (!selectedElectionId) {
+      const msg = "Pilih pemilihan terlebih dahulu.";
+      setError(msg);
+      toast.error(msg);
+      return false;
+    }
+    if (!canEdit) {
+      const msg = "Kandidat hanya bisa diubah saat status pemilihan masih DRAFT.";
+      setError(msg);
+      toast.error(msg);
+      return false;
+    }
+    return true;
+  }
+
   function openCreate() {
+    if (!guardDraftOnly()) return;
     resetForm();
     setSheetOpen(true);
   }
 
   function openEdit(candidate: CandidatePair) {
+    if (!guardDraftOnly()) return;
+
     setEditingId(candidate.id);
     setForm({
       number: String(candidate.number),
@@ -285,13 +308,7 @@ export default function AdminCandidatesPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-
-    if (!selectedElectionId) {
-      const msg = "Pilih pemilihan terlebih dahulu.";
-      setError(msg);
-      toast.error(msg);
-      return;
-    }
+    if (!guardDraftOnly()) return;
 
     const number = Number.parseInt(form.number, 10);
     if (Number.isNaN(number) || number <= 0) {
@@ -344,7 +361,7 @@ export default function AdminCandidatesPage() {
           `/admin/candidates/election/${selectedElectionId}`,
           payload
         );
-        await loadCandidates(selectedElectionId);
+        await loadCandidates(selectedElectionId!);
         toast.success("Kandidat berhasil ditambahkan.");
       }
 
@@ -358,14 +375,15 @@ export default function AdminCandidatesPage() {
   }
 
   async function handleDeleteConfirmed() {
-    if (!confirmDelete || !selectedElectionId) return;
+    if (!confirmDelete) return;
+    if (!guardDraftOnly()) return;
 
     setDeletingId(confirmDelete.id);
     setError(null);
 
     try {
       await apiClient.delete<{ success: boolean }>(`/admin/candidates/${confirmDelete.id}`);
-      await loadCandidates(selectedElectionId);
+      await loadCandidates(selectedElectionId!);
       toast.success("Kandidat berhasil dihapus.");
       setConfirmDelete(null);
     } catch (err: any) {
@@ -378,6 +396,8 @@ export default function AdminCandidatesPage() {
   }
 
   async function toggleActive(candidate: CandidatePair, next: boolean) {
+    if (!guardDraftOnly()) return;
+
     setTogglingId(candidate.id);
     setError(null);
 
@@ -434,8 +454,8 @@ export default function AdminCandidatesPage() {
               Kandidat
             </h1>
             <p className="text-muted-foreground max-w-2xl text-sm">
-              Kelola pasangan calon per pemilihan. Gunakan pencarian untuk menemukan paslon dengan
-              cepat.
+              Kelola pasangan calon per pemilihan. Perubahan kandidat hanya diizinkan saat status
+              pemilihan DRAFT.
             </p>
           </div>
 
@@ -454,7 +474,7 @@ export default function AdminCandidatesPage() {
               size="sm"
               className="h-8 rounded-full px-4 text-[11px]"
               onClick={openCreate}
-              disabled={!selectedElectionId}
+              disabled={!selectedElectionId || !canEdit}
             >
               <Plus className="mr-2 h-4 w-4" />
               Tambah paslon
@@ -467,6 +487,19 @@ export default function AdminCandidatesPage() {
         <Alert variant="destructive" className="border-destructive/60 bg-destructive/10">
           <AlertTitle className="text-sm">Terjadi kesalahan</AlertTitle>
           <AlertDescription className="text-xs">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {selectedElection && !canEdit && (
+        <Alert className="border-border/70 bg-muted/30">
+          <AlertTitle className="flex items-center gap-2 text-sm">
+            <ShieldAlert className="h-4 w-4" />
+            Kandidat terkunci
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            Status pemilihan saat ini <b>{selectedElection.status}</b>. Kandidat hanya bisa
+            tambah/ubah/hapus saat <b>DRAFT</b>.
+          </AlertDescription>
         </Alert>
       )}
 
@@ -572,6 +605,7 @@ export default function AdminCandidatesPage() {
                     size="sm"
                     className="mt-2 h-8 rounded-full px-4 text-[11px]"
                     onClick={openCreate}
+                    disabled={!canEdit}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Tambah paslon
@@ -643,7 +677,12 @@ export default function AdminCandidatesPage() {
                               <Switch
                                 checked={c.isActive}
                                 onCheckedChange={(next) => toggleActive(c, next)}
-                                disabled={togglingId === c.id || submitting || deletingId === c.id}
+                                disabled={
+                                  !canEdit ||
+                                  togglingId === c.id ||
+                                  submitting ||
+                                  deletingId === c.id
+                                }
                               />
                             </div>
                           </TableCell>
@@ -659,12 +698,13 @@ export default function AdminCandidatesPage() {
                               <DropdownMenuContent align="end" className="w-44">
                                 <DropdownMenuLabel className="text-xs">Aksi</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => openEdit(c)}>
+                                <DropdownMenuItem onClick={() => openEdit(c)} disabled={!canEdit}>
                                   <Pencil className="mr-2 h-4 w-4" />
                                   Ubah
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => setConfirmDelete(c)}
+                                  disabled={!canEdit}
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
@@ -723,6 +763,7 @@ export default function AdminCandidatesPage() {
                       onChange={(e) => setForm((p) => ({ ...p, number: e.target.value }))}
                       inputMode="numeric"
                       placeholder="1, 2, 3, ..."
+                      disabled={submitting}
                     />
                   </div>
 
@@ -733,6 +774,7 @@ export default function AdminCandidatesPage() {
                       value={form.shortName}
                       onChange={(e) => setForm((p) => ({ ...p, shortName: e.target.value }))}
                       placeholder="misal: Harmoni Aksi"
+                      disabled={submitting}
                     />
                   </div>
                 </div>
@@ -746,6 +788,7 @@ export default function AdminCandidatesPage() {
                       id="ketuaName"
                       value={form.ketuaName}
                       onChange={(e) => setForm((p) => ({ ...p, ketuaName: e.target.value }))}
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
@@ -755,6 +798,7 @@ export default function AdminCandidatesPage() {
                       value={form.ketuaClass}
                       onChange={(e) => setForm((p) => ({ ...p, ketuaClass: e.target.value }))}
                       placeholder="XI IPA 1"
+                      disabled={submitting}
                     />
                   </div>
 
@@ -764,6 +808,7 @@ export default function AdminCandidatesPage() {
                       id="wakilName"
                       value={form.wakilName}
                       onChange={(e) => setForm((p) => ({ ...p, wakilName: e.target.value }))}
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
@@ -773,6 +818,7 @@ export default function AdminCandidatesPage() {
                       value={form.wakilClass}
                       onChange={(e) => setForm((p) => ({ ...p, wakilClass: e.target.value }))}
                       placeholder="XI IPS 2"
+                      disabled={submitting}
                     />
                   </div>
                 </div>
@@ -784,6 +830,7 @@ export default function AdminCandidatesPage() {
                     value={form.photoUrl}
                     onChange={(e) => setForm((p) => ({ ...p, photoUrl: e.target.value }))}
                     placeholder="https://..."
+                    disabled={submitting}
                   />
                 </div>
 
@@ -794,6 +841,7 @@ export default function AdminCandidatesPage() {
                     value={form.vision}
                     onChange={(e) => setForm((p) => ({ ...p, vision: e.target.value }))}
                     className="min-h-[80px]"
+                    disabled={submitting}
                   />
                 </div>
 
@@ -804,6 +852,7 @@ export default function AdminCandidatesPage() {
                     value={form.mission}
                     onChange={(e) => setForm((p) => ({ ...p, mission: e.target.value }))}
                     className="min-h-[80px]"
+                    disabled={submitting}
                   />
                 </div>
 
@@ -814,6 +863,7 @@ export default function AdminCandidatesPage() {
                     value={form.programs}
                     onChange={(e) => setForm((p) => ({ ...p, programs: e.target.value }))}
                     className="min-h-[80px]"
+                    disabled={submitting}
                   />
                 </div>
 
@@ -828,6 +878,7 @@ export default function AdminCandidatesPage() {
                     <Switch
                       checked={form.isActive}
                       onCheckedChange={(checked) => setForm((p) => ({ ...p, isActive: checked }))}
+                      disabled={submitting}
                     />
                   </div>
                 </div>

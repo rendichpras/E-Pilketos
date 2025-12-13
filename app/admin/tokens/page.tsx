@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { apiClient } from "@/lib/api-client";
-import type { AdminTokensListResponse, Election, Token, TokenStatus } from "@/lib/types";
+import type { AdminTokensListResponse, AdminUser, Election, Token, TokenStatus } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 import { toast } from "sonner";
@@ -87,7 +87,8 @@ import {
   Save,
   Ban,
   Search,
-  Printer
+  Printer,
+  ShieldAlert
 } from "lucide-react";
 
 type PageState = {
@@ -128,6 +129,8 @@ function statusBadgeClass(status: TokenStatus) {
 }
 
 export default function AdminTokensPage() {
+  const [admin, setAdmin] = useState<AdminUser | null>(null);
+
   const [page, setPage] = useState<PageState>({
     loading: true,
     error: null,
@@ -139,7 +142,6 @@ export default function AdminTokensPage() {
   });
 
   const [pdfOpen, setPdfOpen] = useState(false);
-  const [pdfStatus, setPdfStatus] = useState<TokenStatus>("UNUSED");
   const [pdfBatch, setPdfBatch] = useState("");
 
   const [pageNumber, setPageNumber] = useState(1);
@@ -158,6 +160,9 @@ export default function AdminTokensPage() {
     [page.elections, page.selectedElectionId]
   );
 
+  const isSuperAdmin = admin?.role === "SUPER_ADMIN";
+  const canManageTokens = Boolean(isSuperAdmin && selectedElection?.status === "DRAFT");
+
   const tokens = page.tokensRes?.tokens ?? [];
   const pagination = page.tokensRes?.pagination ?? null;
 
@@ -169,11 +174,11 @@ export default function AdminTokensPage() {
     if (!page.selectedElectionId) return "#";
     const qs = new URLSearchParams();
     qs.set("electionId", page.selectedElectionId);
-    qs.set("status", pdfStatus);
+    qs.set("status", "UNUSED");
     if (pdfBatch.trim()) qs.set("batch", pdfBatch.trim());
     qs.set("max", "5000");
     return `/admin/tokens/print-pdf?${qs.toString()}`;
-  }, [page.selectedElectionId, pdfStatus, pdfBatch]);
+  }, [page.selectedElectionId, pdfBatch]);
 
   const visibleTokens = useMemo(() => {
     const q = normalize(query);
@@ -196,6 +201,15 @@ export default function AdminTokensPage() {
 
   useEffect(() => {
     let cancelled = false;
+
+    (async () => {
+      try {
+        const me = await apiClient.get<AdminUser>("/admin/auth/me");
+        if (!cancelled) setAdmin(me);
+      } catch {
+        if (!cancelled) setAdmin(null);
+      }
+    })();
 
     async function loadElections() {
       try {
@@ -224,6 +238,7 @@ export default function AdminTokensPage() {
     }
 
     loadElections();
+
     return () => {
       cancelled = true;
     };
@@ -273,8 +288,12 @@ export default function AdminTokensPage() {
 
   function exportCsv() {
     if (!page.tokensRes) return;
-    const rows = visibleTokens;
-    if (rows.length === 0) return;
+
+    const rows = visibleTokens.filter((t) => t.status === "UNUSED");
+    if (rows.length === 0) {
+      toast.error("Tidak ada token UNUSED pada filter saat ini.");
+      return;
+    }
 
     const header = ["token", "status", "batch"];
     const lines = [
@@ -287,7 +306,7 @@ export default function AdminTokensPage() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "tokens.csv";
+    a.download = "tokens-unused.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -310,6 +329,13 @@ export default function AdminTokensPage() {
     if (!page.selectedElectionId) {
       setPage((prev) => ({ ...prev, error: "Pilih pemilihan terlebih dahulu." }));
       toast.error("Pilih pemilihan terlebih dahulu.");
+      return;
+    }
+
+    if (!canManageTokens) {
+      const msg = "Generate token hanya bisa saat pemilihan DRAFT dan role SUPER_ADMIN.";
+      setPage((prev) => ({ ...prev, error: msg }));
+      toast.error(msg);
       return;
     }
 
@@ -346,6 +372,20 @@ export default function AdminTokensPage() {
 
   async function doInvalidate(token: Token) {
     if (!page.selectedElectionId) return;
+
+    if (!canManageTokens) {
+      const msg = "Invalidasi token hanya bisa saat pemilihan DRAFT dan role SUPER_ADMIN.";
+      setPage((prev) => ({ ...prev, error: msg }));
+      toast.error(msg);
+      return;
+    }
+
+    if (token.status !== "UNUSED") {
+      const msg = "Hanya token UNUSED yang boleh diinvalidasi.";
+      setPage((prev) => ({ ...prev, error: msg }));
+      toast.error(msg);
+      return;
+    }
 
     setPage((prev) => ({ ...prev, invalidatingId: token.id, error: null }));
 
@@ -421,7 +461,7 @@ export default function AdminTokensPage() {
               size="sm"
               className="h-8 rounded-full px-4 text-[11px]"
               onClick={() => setGenerateOpen(true)}
-              disabled={!page.selectedElectionId}
+              disabled={!page.selectedElectionId || !canManageTokens}
             >
               <Plus className="mr-2 h-4 w-4" />
               Generate token
@@ -440,6 +480,30 @@ export default function AdminTokensPage() {
         </Alert>
       )}
 
+      {selectedElection && selectedElection.status !== "DRAFT" && (
+        <Alert className="border-border/70 bg-muted/30">
+          <AlertTitle className="flex items-center gap-2 text-sm">
+            <ShieldAlert className="h-4 w-4" />
+            Token terkunci
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            Generate dan invalidasi token hanya bisa saat status pemilihan <b>DRAFT</b>.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {selectedElection && !isSuperAdmin && (
+        <Alert className="border-border/70 bg-muted/30">
+          <AlertTitle className="flex items-center gap-2 text-sm">
+            <ShieldAlert className="h-4 w-4" />
+            Akses dibatasi
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            Generate dan invalidasi token hanya untuk role <b>SUPER_ADMIN</b>.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="border-border/70 bg-card/90 shadow-sm">
         <CardHeader className="border-border/60 border-b pb-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -447,7 +511,7 @@ export default function AdminTokensPage() {
               <CardTitle className="text-base">Pemilihan</CardTitle>
               <CardDescription className="text-xs">
                 Pilih pemilihan untuk melihat token. Token digunakan siswa untuk masuk ke halaman
-                pemilihan.
+                voting.
               </CardDescription>
             </div>
 
@@ -523,10 +587,13 @@ export default function AdminTokensPage() {
                   size="sm"
                   className="h-8 w-full rounded-full px-3 text-[11px] sm:w-auto"
                   onClick={exportCsv}
-                  disabled={!page.tokensRes || visibleTokens.length === 0}
+                  disabled={
+                    !page.tokensRes ||
+                    visibleTokens.filter((t) => t.status === "UNUSED").length === 0
+                  }
                 >
                   <DownloadCloud className="mr-2 h-4 w-4" />
-                  Export CSV
+                  Export CSV (UNUSED)
                 </Button>
 
                 <Button
@@ -538,7 +605,7 @@ export default function AdminTokensPage() {
                   disabled={!page.selectedElectionId}
                 >
                   <Printer className="mr-2 h-4 w-4" />
-                  PDF token
+                  PDF token (UNUSED)
                 </Button>
               </div>
             </div>
@@ -548,7 +615,7 @@ export default function AdminTokensPage() {
         <CardContent>
           {!page.selectedElectionId ? (
             <div className="border-border/60 bg-muted/30 text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-sm">
-              Buat/pilih pemilihan terlebih dahulu untuk mengelola kandidat.
+              Buat/pilih pemilihan terlebih dahulu untuk mengelola token.
             </div>
           ) : (
             <div className="space-y-4">
@@ -571,6 +638,7 @@ export default function AdminTokensPage() {
                     className="pl-9"
                   />
                 </div>
+
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-muted-foreground text-xs">Per halaman</span>
                   <Select
@@ -621,6 +689,7 @@ export default function AdminTokensPage() {
                     size="sm"
                     className="mt-2 h-8 rounded-full px-4 text-[11px]"
                     onClick={() => setGenerateOpen(true)}
+                    disabled={!canManageTokens}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Generate token
@@ -651,11 +720,19 @@ export default function AdminTokensPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7"
-                                    onClick={() => copyToken(t.token)}
+                                    disabled={t.status !== "UNUSED"}
+                                    onClick={() => {
+                                      if (t.status !== "UNUSED") {
+                                        toast.error("Hanya token UNUSED yang boleh disalin.");
+                                        return;
+                                      }
+                                      copyToken(t.token);
+                                    }}
                                   >
                                     <Copy className="h-4 w-4" />
                                   </Button>
                                 </div>
+
                                 <div className="text-muted-foreground text-[10px]">
                                   Dibuat: {fmtId(t.createdAt)}
                                   {t.usedAt ? <> • Dipakai: {fmtId(t.usedAt)}</> : null}
@@ -690,25 +767,35 @@ export default function AdminTokensPage() {
                                   <DropdownMenuLabel className="text-xs">Aksi</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
 
-                                  <DropdownMenuItem onClick={() => copyToken(t.token)}>
+                                  <DropdownMenuItem
+                                    disabled={t.status !== "UNUSED"}
+                                    onClick={() => {
+                                      if (t.status !== "UNUSED") {
+                                        toast.error("Hanya token UNUSED yang boleh disalin.");
+                                        return;
+                                      }
+                                      copyToken(t.token);
+                                    }}
+                                  >
                                     <Copy className="mr-2 h-4 w-4" />
                                     Salin token
                                   </DropdownMenuItem>
 
-                                  <DropdownMenuSeparator />
-
-                                  <DropdownMenuItem
-                                    onClick={() => setConfirmInvalidate(t)}
-                                    disabled={
-                                      t.status === "USED" ||
-                                      t.status === "INVALIDATED" ||
-                                      page.invalidatingId === t.id
-                                    }
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Ban className="mr-2 h-4 w-4" />
-                                    {page.invalidatingId === t.id ? "Memproses..." : "Invalidasi"}
-                                  </DropdownMenuItem>
+                                  {canManageTokens && t.status === "UNUSED" && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => setConfirmInvalidate(t)}
+                                        disabled={page.invalidatingId === t.id}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Ban className="mr-2 h-4 w-4" />
+                                        {page.invalidatingId === t.id
+                                          ? "Memproses..."
+                                          : "Invalidasi"}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -765,7 +852,7 @@ export default function AdminTokensPage() {
         </CardContent>
       </Card>
 
-      <Sheet open={generateOpen} onOpenChange={setGenerateOpen}>
+      <Sheet open={generateOpen} onOpenChange={(open) => setGenerateOpen(open)}>
         <SheetContent className="flex w-full flex-col p-0 sm:max-w-lg">
           <div className="border-border/60 border-b px-6 pt-6 pb-4">
             <SheetHeader className="p-0">
@@ -774,8 +861,7 @@ export default function AdminTokensPage() {
                 Generate token
               </SheetTitle>
               <SheetDescription>
-                Buat token baru untuk pemilihan yang dipilih. Batch opsional untuk memudahkan
-                filter/print.
+                Token hanya bisa dibuat saat pemilihan <b>DRAFT</b> dan role <b>SUPER_ADMIN</b>.
               </SheetDescription>
             </SheetHeader>
           </div>
@@ -783,6 +869,18 @@ export default function AdminTokensPage() {
           <form onSubmit={handleGenerate} className="flex min-h-0 flex-1 flex-col">
             <ScrollArea className="min-h-0 flex-1 px-6 py-5">
               <div className="space-y-5">
+                {!canManageTokens && (
+                  <Alert className="border-border/70 bg-muted/30">
+                    <AlertTitle className="flex items-center gap-2 text-sm">
+                      <ShieldAlert className="h-4 w-4" />
+                      Tidak bisa generate
+                    </AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Pastikan status pemilihan DRAFT dan Anda login sebagai SUPER_ADMIN.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="count">Jumlah token</Label>
                   <Input
@@ -791,6 +889,7 @@ export default function AdminTokensPage() {
                     onChange={(e) => setForm((p) => ({ ...p, count: e.target.value }))}
                     inputMode="numeric"
                     placeholder="misal: 300"
+                    disabled={!canManageTokens || page.generating}
                   />
                   <p className="text-muted-foreground text-[11px]">
                     Maksimal 10.000 per sekali generate.
@@ -804,6 +903,7 @@ export default function AdminTokensPage() {
                     value={form.batchLabel}
                     onChange={(e) => setForm((p) => ({ ...p, batchLabel: e.target.value }))}
                     placeholder="misal: Kelas-XI / Gelombang-1"
+                    disabled={!canManageTokens || page.generating}
                   />
                 </div>
 
@@ -828,7 +928,7 @@ export default function AdminTokensPage() {
                 >
                   Batal
                 </Button>
-                <Button type="submit" disabled={page.generating}>
+                <Button type="submit" disabled={!canManageTokens || page.generating}>
                   {page.generating ? (
                     <>
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -875,7 +975,12 @@ export default function AdminTokensPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => confirmInvalidate && doInvalidate(confirmInvalidate)}
-              disabled={!confirmInvalidate || page.invalidatingId === confirmInvalidate.id}
+              disabled={
+                !confirmInvalidate ||
+                page.invalidatingId === confirmInvalidate.id ||
+                !canManageTokens ||
+                confirmInvalidate.status !== "UNUSED"
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {page.invalidatingId === confirmInvalidate?.id ? "Memproses..." : "Invalidasi"}
@@ -883,45 +988,23 @@ export default function AdminTokensPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       <Sheet open={pdfOpen} onOpenChange={setPdfOpen}>
         <SheetContent className="flex w-full flex-col p-0 sm:max-w-lg">
           <div className="border-border/60 border-b px-6 pt-6 pb-4">
             <SheetHeader className="p-0">
               <SheetTitle className="flex items-center gap-2">
                 <Printer className="h-4 w-4" />
-                Unduh PDF token
+                Unduh PDF token (UNUSED)
               </SheetTitle>
               <SheetDescription>
-                PDF akan dibuat dari server (bukan browser print). Gunakan filter status/batch bila
-                perlu. Maksimal 5000 token per file.
+                PDF dibuat dari server. Hanya token <b>UNUSED</b> yang dicetak. Maksimal 5000 token
+                per file.
               </SheetDescription>
             </SheetHeader>
           </div>
 
           <div className="min-h-0 flex-1 space-y-5 px-6 py-5">
-            <div className="space-y-2">
-              <Label className="text-xs sm:text-sm">Status token</Label>
-              <Select value={pdfStatus} onValueChange={(v) => setPdfStatus(v as TokenStatus)}>
-                <SelectTrigger className="h-9 w-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UNUSED" className="text-xs">
-                    UNUSED
-                  </SelectItem>
-                  <SelectItem value="USED" className="text-xs">
-                    USED
-                  </SelectItem>
-                  <SelectItem value="INVALIDATED" className="text-xs">
-                    INVALIDATED
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground text-[11px]">
-                Umumnya yang dicetak/dibagikan adalah <span className="font-semibold">UNUSED</span>.
-              </p>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="pdfBatch" className="text-xs sm:text-sm">
                 Batch (opsional)

@@ -113,7 +113,6 @@ export default function AdminResultsPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedElection = useMemo(

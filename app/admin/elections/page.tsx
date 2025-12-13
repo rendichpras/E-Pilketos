@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { apiClient } from "@/lib/api-client";
-import type { Election, ElectionStatus } from "@/lib/types";
+import type { AdminUser, Election, ElectionStatus } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 import { toast } from "sonner";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardHeader,
@@ -63,6 +62,8 @@ import {
 
 import {
   CalendarClock,
+  Eye,
+  EyeOff,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -80,7 +81,6 @@ type FormState = {
   description: string;
   startAt: string;
   endAt: string;
-  isResultPublic: boolean;
 };
 
 type TabValue = "all" | ElectionStatus;
@@ -127,6 +127,9 @@ function normalize(s: string) {
 }
 
 export default function AdminElectionsPage() {
+  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const isSuperAdmin = admin?.role === "SUPER_ADMIN";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [elections, setElections] = useState<Election[]>([]);
@@ -136,19 +139,25 @@ export default function AdminElectionsPage() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingElection, setEditingElection] = useState<Election | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [confirmActivate, setConfirmActivate] = useState<Election | null>(null);
   const [confirmClose, setConfirmClose] = useState<Election | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
+  const [confirmPublish, setConfirmPublish] = useState<Election | null>(null);
+  const [confirmHide, setConfirmHide] = useState<Election | null>(null);
+  const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
+
+  const canEditSchedule = !editingId || editingElection?.status === "DRAFT";
+
   const [form, setForm] = useState<FormState>({
     slug: "",
     name: "",
     description: "",
     startAt: "",
-    endAt: "",
-    isResultPublic: false
+    endAt: ""
   });
 
   function resetForm() {
@@ -157,8 +166,7 @@ export default function AdminElectionsPage() {
       name: "",
       description: "",
       startAt: "",
-      endAt: "",
-      isResultPublic: false
+      endAt: ""
     });
   }
 
@@ -180,6 +188,15 @@ export default function AdminElectionsPage() {
 
   useEffect(() => {
     let cancelled = false;
+
+    (async () => {
+      try {
+        const me = await apiClient.get<AdminUser>("/admin/auth/me");
+        if (!cancelled) setAdmin(me);
+      } catch {
+        // AdminLayout sudah handle redirect; di sini cukup diam
+      }
+    })();
 
     (async () => {
       try {
@@ -230,6 +247,7 @@ export default function AdminElectionsPage() {
 
   function openCreate() {
     setEditingId(null);
+    setEditingElection(null);
     resetForm();
     setError(null);
     setSheetOpen(true);
@@ -237,13 +255,13 @@ export default function AdminElectionsPage() {
 
   function openEdit(election: Election) {
     setEditingId(election.id);
+    setEditingElection(election);
     setForm({
       slug: election.slug,
       name: election.name,
       description: election.description ?? "",
       startAt: toDatetimeLocalValue(election.startAt),
-      endAt: toDatetimeLocalValue(election.endAt),
-      isResultPublic: Boolean(election.isResultPublic)
+      endAt: toDatetimeLocalValue(election.endAt)
     });
     setError(null);
     setSheetOpen(true);
@@ -253,6 +271,7 @@ export default function AdminElectionsPage() {
     setSheetOpen(false);
     setSubmitting(false);
     setEditingId(null);
+    setEditingElection(null);
     resetForm();
   }
 
@@ -262,55 +281,73 @@ export default function AdminElectionsPage() {
     setSubmitting(true);
     setError(null);
 
-    const payload = {
-      slug: form.slug.trim(),
-      name: form.name.trim(),
-      description: form.description.trim(),
-      startAt: form.startAt ? new Date(form.startAt).toISOString() : "",
-      endAt: form.endAt ? new Date(form.endAt).toISOString() : "",
-      isResultPublic: form.isResultPublic
-    };
+    const slug = form.slug.trim();
+    const name = form.name.trim();
+    const description = form.description.trim();
 
-    if (!payload.slug || !payload.name || !payload.description) {
-      const msg = "Slug, nama, dan deskripsi wajib diisi.";
+    if (!slug && !editingId) {
+      const msg = "Slug wajib diisi saat membuat pemilihan.";
       setError(msg);
       toast.error(msg);
       setSubmitting(false);
       return;
     }
 
-    if (!form.startAt || !form.endAt) {
-      const msg = "Waktu mulai dan selesai wajib diisi.";
+    if (!name || !description) {
+      const msg = "Nama dan deskripsi wajib diisi.";
       setError(msg);
       toast.error(msg);
       setSubmitting(false);
       return;
     }
 
-    const start = new Date(form.startAt).getTime();
-    const end = new Date(form.endAt).getTime();
-    if (!Number.isNaN(start) && !Number.isNaN(end) && end <= start) {
-      const msg = "Waktu selesai harus setelah waktu mulai.";
-      setError(msg);
-      toast.error(msg);
-      setSubmitting(false);
-      return;
+    const mustValidateSchedule = !editingId || canEditSchedule;
+
+    if (mustValidateSchedule) {
+      if (!form.startAt || !form.endAt) {
+        const msg = "Waktu mulai dan selesai wajib diisi.";
+        setError(msg);
+        toast.error(msg);
+        setSubmitting(false);
+        return;
+      }
+
+      const start = new Date(form.startAt).getTime();
+      const end = new Date(form.endAt).getTime();
+      if (!Number.isNaN(start) && !Number.isNaN(end) && end <= start) {
+        const msg = "Waktu selesai harus setelah waktu mulai.";
+        setError(msg);
+        toast.error(msg);
+        setSubmitting(false);
+        return;
+      }
     }
 
     try {
       if (editingId) {
-        const updated = await apiClient.put<Election>(`/admin/elections/${editingId}`, {
-          name: payload.name,
-          description: payload.description,
-          startAt: payload.startAt,
-          endAt: payload.endAt,
-          isResultPublic: payload.isResultPublic
-        });
+        const payload: Record<string, any> = {
+          name,
+          description
+        };
+
+        if (canEditSchedule) {
+          payload.startAt = new Date(form.startAt).toISOString();
+          payload.endAt = new Date(form.endAt).toISOString();
+        }
+
+        const updated = await apiClient.put<Election>(`/admin/elections/${editingId}`, payload);
 
         setElections((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
         toast.success("Pemilihan berhasil diperbarui.");
       } else {
-        const created = await apiClient.post<Election>("/admin/elections", payload);
+        const created = await apiClient.post<Election>("/admin/elections", {
+          slug,
+          name,
+          description,
+          startAt: new Date(form.startAt).toISOString(),
+          endAt: new Date(form.endAt).toISOString()
+        });
+
         setElections((prev) => [created, ...prev]);
         toast.success("Pemilihan berhasil dibuat.");
       }
@@ -325,6 +362,13 @@ export default function AdminElectionsPage() {
   }
 
   async function doActivate(election: Election) {
+    if (!isSuperAdmin) {
+      const msg = "Aksi ini hanya untuk SUPER_ADMIN.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
     setActionBusyId(election.id);
     setError(null);
 
@@ -352,6 +396,13 @@ export default function AdminElectionsPage() {
   }
 
   async function doClose(election: Election) {
+    if (!isSuperAdmin) {
+      const msg = "Aksi ini hanya untuk SUPER_ADMIN.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
     setActionBusyId(election.id);
     setError(null);
 
@@ -366,6 +417,62 @@ export default function AdminElectionsPage() {
       toast.error(message);
     } finally {
       setActionBusyId(null);
+    }
+  }
+
+  async function doPublishResults(election: Election) {
+    if (!isSuperAdmin) {
+      const msg = "Aksi ini hanya untuk SUPER_ADMIN.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setPublishBusyId(election.id);
+    setError(null);
+
+    try {
+      const updated = await apiClient.post<Election>(
+        `/admin/elections/${election.id}/publish-results`,
+        {}
+      );
+      setElections((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      toast.success("Hasil berhasil dipublikasikan.");
+      setConfirmPublish(null);
+    } catch (err: any) {
+      const message = err?.data?.error ?? "Gagal mempublikasikan hasil.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setPublishBusyId(null);
+    }
+  }
+
+  async function doHideResults(election: Election) {
+    if (!isSuperAdmin) {
+      const msg = "Aksi ini hanya untuk SUPER_ADMIN.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setPublishBusyId(election.id);
+    setError(null);
+
+    try {
+      const updated = await apiClient.post<Election>(
+        `/admin/elections/${election.id}/hide-results`,
+        {}
+      );
+      setElections((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      toast.success("Hasil berhasil disembunyikan.");
+      setConfirmHide(null);
+    } catch (err: any) {
+      const message = err?.data?.error ?? "Gagal menyembunyikan hasil.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setPublishBusyId(null);
     }
   }
 
@@ -613,33 +720,66 @@ export default function AdminElectionsPage() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuContent align="end" className="w-52">
                             <DropdownMenuLabel className="text-xs">Aksi</DropdownMenuLabel>
                             <DropdownMenuSeparator />
+
                             <DropdownMenuItem onClick={() => openEdit(election)}>
                               <Pencil className="mr-2 h-4 w-4" />
                               Ubah
                             </DropdownMenuItem>
 
-                            {election.status !== "ACTIVE" && (
-                              <DropdownMenuItem
-                                onClick={() => setConfirmActivate(election)}
-                                disabled={actionBusyId === election.id}
-                              >
-                                <Power className="mr-2 h-4 w-4" />
-                                Jadikan aktif
-                              </DropdownMenuItem>
-                            )}
+                            {isSuperAdmin && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
 
-                            {election.status === "ACTIVE" && (
-                              <DropdownMenuItem
-                                onClick={() => setConfirmClose(election)}
-                                disabled={actionBusyId === election.id}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Tutup pemilihan
-                              </DropdownMenuItem>
+                                {election.status === "DRAFT" && (
+                                  <DropdownMenuItem
+                                    onClick={() => setConfirmActivate(election)}
+                                    disabled={actionBusyId === election.id}
+                                  >
+                                    <Power className="mr-2 h-4 w-4" />
+                                    Jadikan aktif
+                                  </DropdownMenuItem>
+                                )}
+
+                                {election.status === "ACTIVE" && (
+                                  <DropdownMenuItem
+                                    onClick={() => setConfirmClose(election)}
+                                    disabled={actionBusyId === election.id}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Tutup pemilihan
+                                  </DropdownMenuItem>
+                                )}
+
+                                {election.status === "CLOSED" && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-xs">Hasil</DropdownMenuLabel>
+
+                                    {election.isResultPublic ? (
+                                      <DropdownMenuItem
+                                        onClick={() => setConfirmHide(election)}
+                                        disabled={publishBusyId === election.id}
+                                      >
+                                        <EyeOff className="mr-2 h-4 w-4" />
+                                        Sembunyikan hasil
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        onClick={() => setConfirmPublish(election)}
+                                        disabled={publishBusyId === election.id}
+                                      >
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        Publikasikan hasil
+                                      </DropdownMenuItem>
+                                    )}
+                                  </>
+                                )}
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -653,9 +793,7 @@ export default function AdminElectionsPage() {
         </CardContent>
 
         <CardFooter className="border-border/60 text-muted-foreground flex flex-col gap-2 border-t pt-4 text-xs md:flex-row md:items-center md:justify-between">
-          <div>
-            Status ACTIVE hanya boleh satu. Tombol “Jadikan aktif” akan menutup ACTIVE sebelumnya.
-          </div>
+          <div>Status ACTIVE hanya boleh satu. Aktivasi hanya untuk SUPER_ADMIN.</div>
           <div className="font-mono text-[11px] tracking-[0.14em] uppercase">/admin/elections</div>
         </CardFooter>
       </Card>
@@ -669,8 +807,8 @@ export default function AdminElectionsPage() {
                 {editingId ? "Ubah pemilihan" : "Buat pemilihan"}
               </SheetTitle>
               <SheetDescription>
-                Lengkapi identitas, jadwal, dan pengaturan hasil. Slug hanya bisa diisi saat
-                pembuatan.
+                Lengkapi identitas dan jadwal. Slug hanya bisa diisi saat pembuatan. Publikasi hasil
+                dilakukan lewat menu aksi (CLOSED only).
               </SheetDescription>
             </SheetHeader>
           </div>
@@ -678,6 +816,16 @@ export default function AdminElectionsPage() {
           <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <ScrollArea className="min-h-0 flex-1 px-6 py-5">
               <div className="space-y-5">
+                {editingId && !canEditSchedule && (
+                  <Alert className="border-border/70 bg-muted/30">
+                    <AlertTitle>Jadwal terkunci</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Pemilihan yang bukan DRAFT tidak bisa mengubah jadwal. Anda masih bisa
+                      mengubah nama dan deskripsi.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="slug">Slug</Label>
                   <Input
@@ -721,6 +869,7 @@ export default function AdminElectionsPage() {
                       type="datetime-local"
                       value={form.startAt}
                       onChange={(e) => setForm((p) => ({ ...p, startAt: e.target.value }))}
+                      disabled={submitting || (Boolean(editingId) && !canEditSchedule)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -730,23 +879,7 @@ export default function AdminElectionsPage() {
                       type="datetime-local"
                       value={form.endAt}
                       onChange={(e) => setForm((p) => ({ ...p, endAt: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="border-border/60 bg-muted/30 rounded-xl border p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium">Publikasikan hasil</p>
-                      <p className="text-muted-foreground text-[11px]">
-                        Jika aktif, hasil bisa dilihat publik setelah status CLOSED.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={form.isResultPublic}
-                      onCheckedChange={(checked) =>
-                        setForm((p) => ({ ...p, isResultPublic: checked }))
-                      }
+                      disabled={submitting || (Boolean(editingId) && !canEditSchedule)}
                     />
                   </div>
                 </div>
@@ -834,10 +967,7 @@ export default function AdminElectionsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Tutup pemilihan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Setelah ditutup, status menjadi CLOSED dan tidak bisa kembali ACTIVE dari halaman
-              publik.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Setelah ditutup, status menjadi CLOSED.</AlertDialogDescription>
           </AlertDialogHeader>
 
           {confirmClose ? (
@@ -859,6 +989,77 @@ export default function AdminElectionsPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {actionBusyId === confirmClose?.id ? "Memproses..." : "Tutup"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(confirmPublish)}
+        onOpenChange={(open) => !open && setConfirmPublish(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publikasikan hasil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hasil pemilihan akan dapat dilihat publik pada halaman hasil.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {confirmPublish ? (
+            <div className="border-border/60 bg-muted/20 rounded-xl border p-3 text-sm">
+              <div className="font-medium">{confirmPublish.name}</div>
+              <div className="text-muted-foreground mt-1 text-xs">
+                Status: <span className="font-medium">{confirmPublish.status}</span>
+              </div>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={publishBusyId === confirmPublish?.id}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmPublish && doPublishResults(confirmPublish)}
+              disabled={!confirmPublish || publishBusyId === confirmPublish.id}
+            >
+              {publishBusyId === confirmPublish?.id ? "Memproses..." : "Publikasikan"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(confirmHide)}
+        onOpenChange={(open) => !open && setConfirmHide(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sembunyikan hasil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hasil pemilihan tidak akan dapat dilihat publik sampai dipublikasikan kembali.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {confirmHide ? (
+            <div className="border-border/60 bg-muted/20 rounded-xl border p-3 text-sm">
+              <div className="font-medium">{confirmHide.name}</div>
+              <div className="text-muted-foreground mt-1 text-xs">
+                Status: <span className="font-medium">{confirmHide.status}</span>
+              </div>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={publishBusyId === confirmHide?.id}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmHide && doHideResults(confirmHide)}
+              disabled={!confirmHide || publishBusyId === confirmHide.id}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {publishBusyId === confirmHide?.id ? "Memproses..." : "Sembunyikan"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
