@@ -42,11 +42,13 @@ adminTokensApp.post("/generate/:electionId", requireRole("SUPER_ADMIN"), async (
   const { electionId } = c.req.param();
 
   const [election] = await db.select().from(elections).where(eq(elections.id, electionId)).limit(1);
+  if (!election) {
+    return c.json({ error: "Election not found" }, 404);
+  }
+
   if (election.status !== "DRAFT") {
     return c.json({ error: "Token hanya bisa dibuat saat election masih DRAFT" }, 400);
   }
-
-  if (!election) return c.json({ error: "Election not found" }, 404);
 
   const body = await c.req.json().catch(() => null);
   const parsed = generateTokensSchema.safeParse(body);
