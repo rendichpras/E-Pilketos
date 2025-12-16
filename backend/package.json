@@ -1,0 +1,35 @@
+{
+  "name": "e-pilketos-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun tsx src/index.ts",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "maintenance:run": "bun tsx src/scripts/maintenance.ts",
+    "integrity:check": "bun tsx src/scripts/integrity-check.ts",
+    "autoClose:run": "bun tsx src/scripts/auto-close.ts",
+    "format": "bunx prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --write",
+    "format:check": "bunx prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --check"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.6.8",
+    "pg": "^8.13.1",
+    "redis": "^5.10.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^25.0.1",
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.19.2",
+    "prettier": "^3.7.4",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "typescript": "^5"
+  }
+}
