@@ -193,9 +193,7 @@ export default function AdminElectionsPage() {
       try {
         const me = await apiClient.get<AdminUser>("/admin/auth/me");
         if (!cancelled) setAdmin(me);
-      } catch {
-        // AdminLayout sudah handle redirect; di sini cukup diam
-      }
+      } catch {}
     })();
 
     (async () => {

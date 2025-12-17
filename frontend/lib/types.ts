@@ -93,3 +93,7 @@ export interface PublicResultsResponse {
   totalVotes: number;
   results: ResultsRow[];
 }
+
+export interface PublicLatestElectionResponse {
+  latestElection: Election | null;
+}

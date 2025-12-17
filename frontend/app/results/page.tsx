@@ -6,20 +6,25 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { AlertCircle, BarChart3, Trophy } from "lucide-react";
+import { AlertCircle, BarChart3, Trophy, LockKeyhole, CalendarX2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-async function getResults() {
+type FetchResult = {
+  status: number;
+  data: PublicResultsResponse | null;
+  error?: string | null;
+} | null;
+
+async function getResults(): Promise<FetchResult> {
   try {
-    const res = await fetch(`${API_BASE_URL}/public/results`, {
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_BASE_URL}/public/results`, { cache: "no-store" });
 
     if (!res.ok) {
-      return { status: res.status, data: null };
+      const payload = await res.json().catch(() => null);
+      return { status: res.status, data: null, error: payload?.error ?? null };
     }
 
-    return { status: 200, data: (await res.json()) as PublicResultsResponse };
+    return { status: 200, data: (await res.json()) as PublicResultsResponse, error: null };
   } catch {
     return null;
   }
@@ -28,7 +33,85 @@ async function getResults() {
 export default async function PublicResultsPage() {
   const result = await getResults();
 
-  if (!result || !result.data || !result.data.election) {
+  if (!result) {
+    return (
+      <div className="bg-background text-foreground flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex flex-1 items-center">
+          <div className="container mx-auto max-w-5xl px-4 py-10 md:px-6">
+            <Card className="bg-muted/40 mx-auto w-full max-w-md border-dashed">
+              <CardContent className="flex flex-col items-center gap-4 py-8 text-center text-sm">
+                <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium">Tidak dapat terhubung ke server.</p>
+                  <p className="text-muted-foreground text-xs">
+                    Periksa koneksi Anda dan coba beberapa saat lagi.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (result.status === 403) {
+    return (
+      <div className="bg-background text-foreground flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex flex-1 items-center">
+          <div className="container mx-auto max-w-5xl px-4 py-10 md:px-6">
+            <Card className="bg-muted/40 mx-auto w-full max-w-md border-dashed">
+              <CardContent className="flex flex-col items-center gap-4 py-8 text-center text-sm">
+                <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full">
+                  <LockKeyhole className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium">Hasil belum dipublikasikan.</p>
+                  <p className="text-muted-foreground text-xs">
+                    {result.error ?? "Panitia belum membuka akses rekapitulasi hasil."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (result.status === 200 && result.data && !result.data.election) {
+    return (
+      <div className="bg-background text-foreground flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex flex-1 items-center">
+          <div className="container mx-auto max-w-5xl px-4 py-10 md:px-6">
+            <Card className="bg-muted/40 mx-auto w-full max-w-md border-dashed">
+              <CardContent className="flex flex-col items-center gap-4 py-8 text-center text-sm">
+                <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full">
+                  <CalendarX2 className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium">Belum ada hasil pemilihan yang tersedia.</p>
+                  <p className="text-muted-foreground text-xs">
+                    Tidak ada pemilihan yang hasilnya sudah dipublikasikan saat ini.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!result.data || !result.data.election) {
     return (
       <div className="bg-background text-foreground flex min-h-screen flex-col">
         <Navbar />
@@ -42,7 +125,9 @@ export default async function PublicResultsPage() {
                 <div className="space-y-1">
                   <p className="font-medium">Data hasil pemilihan belum dapat ditampilkan.</p>
                   <p className="text-muted-foreground text-xs">
-                    Coba beberapa saat lagi atau hubungi panitia jika masalah terus berlanjut.
+                    {result.error
+                      ? result.error
+                      : "Coba beberapa saat lagi atau hubungi panitia jika masalah terus berlanjut."}
                   </p>
                 </div>
               </CardContent>

@@ -31,12 +31,16 @@ voterApp.get("/candidates", async (c) => {
     .where(eq(elections.id, electionId))
     .limit(1);
 
-  if (
+  const inactive =
     !electionRow ||
     electionRow.status !== "ACTIVE" ||
-    !(electionRow.startAt <= now && now <= electionRow.endAt)
-  ) {
-    return c.json({ error: "Pemilihan tidak aktif atau di luar jadwal" }, 400);
+    !(electionRow.startAt <= now && now <= electionRow.endAt);
+
+  if (inactive) {
+    return c.json(
+      { error: "Pemilihan tidak aktif atau di luar jadwal", code: "ELECTION_INACTIVE" },
+      400
+    );
   }
 
   const candidatesRows = await db
@@ -77,12 +81,17 @@ voterApp.post(
       .from(elections)
       .where(eq(elections.id, electionId))
       .limit(1);
-    if (
+
+    const inactive =
       !electionRow ||
       electionRow.status !== "ACTIVE" ||
-      !(electionRow.startAt <= now && now <= electionRow.endAt)
-    ) {
-      return c.json({ error: "Pemilihan tidak aktif atau di luar jadwal" }, 400);
+      !(electionRow.startAt <= now && now <= electionRow.endAt);
+
+    if (inactive) {
+      return c.json(
+        { error: "Pemilihan tidak aktif atau di luar jadwal", code: "ELECTION_INACTIVE" },
+        400
+      );
     }
 
     const result = await db.transaction(async (tx) => {
@@ -116,7 +125,10 @@ voterApp.post(
         )
         .returning({ id: tokens.id });
 
-      if (!consumed) return { ok: false as const, error: "TOKEN_ALREADY_USED" as const };
+      if (!consumed) {
+        await tx.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
+        return { ok: false as const, error: "TOKEN_ALREADY_USED" as const };
+      }
 
       await tx.insert(votes).values({
         electionId,
@@ -129,10 +141,14 @@ voterApp.post(
     });
 
     if (!result.ok) {
+      deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+
       if (result.error === "TOKEN_ALREADY_USED")
-        return c.json({ error: "Token sudah digunakan untuk memilih" }, 400);
+        return c.json({ error: "Token sudah digunakan", code: "TOKEN_USED" }, 409);
+
       if (result.error === "CANDIDATE_INVALID")
-        return c.json({ error: "Pasangan calon tidak valid" }, 400);
+        return c.json({ error: "Pasangan calon tidak valid", code: "CANDIDATE_INVALID" }, 400);
+
       return c.json({ error: "Gagal menyimpan suara" }, 500);
     }
 

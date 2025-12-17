@@ -6,10 +6,8 @@ const envSchema = z
     PORT: z.coerce.number().default(4000),
     DATABASE_URL: z.string().min(1, "DATABASE_URL wajib diisi"),
 
-    // CORS
     CORS_ORIGIN: z.string().optional(),
 
-    // Cookie
     COOKIE_DOMAIN: z.string().optional(),
     COOKIE_SAMESITE: z
       .preprocess(
@@ -26,7 +24,6 @@ const envSchema = z
       .default("Lax"),
     COOKIE_SECURE: z.coerce.boolean().optional(),
 
-    // Session TTL
     ADMIN_SESSION_TTL_SEC: z.coerce
       .number()
       .int()
@@ -40,11 +37,9 @@ const envSchema = z
       .max(24 * 3600)
       .default(2 * 3600),
 
-    // Redis (rate limit multi-instance)
     REDIS_URL: z.string().optional(),
     RATE_LIMIT_REDIS_PREFIX: z.string().min(1).default("e-pilketos:rl"),
 
-    // Rate limit
     RATE_LIMIT_LOGIN_WINDOW_SEC: z.coerce.number().int().min(5).max(3600).default(60),
     RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().min(1).max(1000).default(10),
     RATE_LIMIT_TOKEN_LOGIN_WINDOW_SEC: z.coerce.number().int().min(5).max(3600).default(60),

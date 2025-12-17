@@ -313,7 +313,6 @@ export default function AdminResultsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {/* MOBILE: card list */}
               <div className="sm:hidden">
                 <div className="text-muted-foreground mb-2 text-[11px]">
                   update: {fmtId(page.results.election.updatedAt)}
@@ -380,7 +379,6 @@ export default function AdminResultsPage() {
                 </div>
               </div>
 
-              {/* DESKTOP: table */}
               <div className="border-border/60 hidden overflow-x-auto rounded-2xl border sm:block">
                 <Table className="min-w-[720px]">
                   <TableHeader>

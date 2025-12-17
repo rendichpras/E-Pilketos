@@ -19,7 +19,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
-import { CalendarDays, Info, ShieldCheck, BarChart3, Users, Clock, ListChecks } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  Clock,
+  Info,
+  ListChecks,
+  LockKeyhole,
+  ShieldCheck,
+  Users
+} from "lucide-react";
 
 async function getActiveElection() {
   try {
@@ -153,11 +162,19 @@ export default async function HomePage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
-                  <Button asChild size="lg">
-                    <Link href="/vote" className="font-mono text-sm">
-                      Mulai Memilih
-                    </Link>
-                  </Button>
+                  {election ? (
+                    <Button asChild size="lg">
+                      <Link href="/vote" className="font-mono text-sm">
+                        Mulai Memilih
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button size="lg" disabled className="font-mono text-sm">
+                      <LockKeyhole className="mr-2 h-4 w-4" />
+                      Pemilihan Belum Dibuka
+                    </Button>
+                  )}
+
                   <Button asChild variant="secondary" size="lg">
                     <Link href="/candidates" className="font-mono text-sm">
                       Lihat Kandidat

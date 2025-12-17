@@ -1,9 +1,10 @@
 import type { Context, Next } from "hono";
-import { getCookie } from "hono/cookie";
+import { deleteCookie, getCookie } from "hono/cookie";
 import { and, eq, gt } from "drizzle-orm";
 import type { AppEnv } from "../app-env";
 import { db } from "../db/client";
 import { voterSessions, tokens } from "../db/schema";
+import { env as appEnv } from "../env";
 
 export async function voterAuth(c: Context<AppEnv>, next: Next) {
   const sessionToken = getCookie(c, "voter_session");
@@ -23,12 +24,14 @@ export async function voterAuth(c: Context<AppEnv>, next: Next) {
 
   if (!row) {
     await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
+    deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
     return c.json({ error: "Invalid or expired voter session" }, 401);
   }
 
   if (row.token.status !== "UNUSED") {
     await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
-    return c.json({ error: "Token sudah digunakan atau tidak valid" }, 401);
+    deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+    return c.json({ error: "Token sudah digunakan", code: "TOKEN_USED" }, 409);
   }
 
   c.set("voter", {

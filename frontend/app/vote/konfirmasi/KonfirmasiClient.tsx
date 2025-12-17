@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import type { PublicCandidatesResponse, CandidatePair, Election } from "@/lib/types";
+import { VoteShell } from "@/components/vote/vote-shell";
+import { VoteHeader } from "@/components/vote/vote-header";
+import { VoteKonfirmasiSkeleton } from "@/components/vote/vote-skeletons";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { VoteStepIndicator } from "@/components/vote-step-indicator";
-import { Loader2, Vote } from "lucide-react";
+import { Loader2, Vote as VoteIcon, AlertCircle } from "lucide-react";
 
 type State = {
   loading: boolean;
@@ -24,6 +19,30 @@ type State = {
   candidate: CandidatePair | null;
   submitting: boolean;
 };
+
+function formatRange(startIso?: string, endIso?: string) {
+  if (!startIso || !endIso) return null;
+
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+
+  const dateFmt = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+  const timeFmt = new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  const sameDay = start.toDateString() === end.toDateString();
+  if (sameDay) return `${dateFmt.format(start)} • ${timeFmt.format(start)}–${timeFmt.format(end)}`;
+
+  return `${dateFmt.format(start)} ${timeFmt.format(start)} — ${dateFmt.format(end)} ${timeFmt.format(
+    end
+  )}`;
+}
 
 export default function KonfirmasiClient() {
   const router = useRouter();
@@ -39,22 +58,38 @@ export default function KonfirmasiClient() {
   });
 
   useEffect(() => {
+    const reset = () => setState((p) => ({ ...p, submitting: false }));
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reset();
+    };
+
+    window.addEventListener("pageshow", reset);
+    window.addEventListener("focus", reset);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("pageshow", reset);
+      window.removeEventListener("focus", reset);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function load() {
       if (!candidateId) {
-        router.replace("/vote/surat-suara");
+        router.replace("/vote/surat-suara?reason=missing_choice");
         return;
       }
 
       try {
         const data = await apiClient.get<PublicCandidatesResponse>("/voter/candidates");
-
         if (cancelled) return;
 
         const found = data.candidates.find((c) => c.id === candidateId);
         if (!found) {
-          router.replace("/vote/surat-suara");
+          router.replace("/vote/surat-suara?reason=invalid_choice");
           return;
         }
 
@@ -62,13 +97,14 @@ export default function KonfirmasiClient() {
           ...prev,
           loading: false,
           election: data.election,
-          candidate: found
+          candidate: found,
+          error: null
         }));
       } catch (err: any) {
         if (cancelled) return;
 
         if (err?.status === 401) {
-          router.replace("/vote");
+          router.replace("/vote?reason=session_expired");
           return;
         }
 
@@ -86,122 +122,149 @@ export default function KonfirmasiClient() {
     };
   }, [candidateId, router]);
 
+  const electionRange = useMemo(() => {
+    if (!state.election) return null;
+    return formatRange(state.election.startAt, state.election.endAt);
+  }, [state.election]);
+
   async function handleSubmit() {
-    if (!state.candidate) return;
+    if (!state.candidate || state.submitting) return;
 
     setState((prev) => ({ ...prev, submitting: true, error: null }));
 
     try {
-      await apiClient.post("/voter/vote", {
-        candidatePairId: state.candidate.id
-      });
+      await apiClient.post("/voter/vote", { candidatePairId: state.candidate.id });
       router.replace("/vote/sukses");
     } catch (err: any) {
+      const msg: string = err?.data?.error ?? "";
+
+      if (err?.status === 401) {
+        router.replace("/vote?reason=session_expired");
+        return;
+      }
+
+      if (err?.status === 400 && msg.toLowerCase().includes("token sudah digunakan")) {
+        router.replace("/vote/sukses?reason=token_used");
+        return;
+      }
+
+      if (err?.status === 400 && msg.toLowerCase().includes("pasangan calon tidak valid")) {
+        router.replace("/vote/surat-suara?reason=invalid_choice");
+        return;
+      }
+
       setState((prev) => ({
         ...prev,
         submitting: false,
-        error: err?.data?.error ?? "Gagal menyimpan suara."
+        error: msg || "Gagal menyimpan suara."
       }));
     }
   }
 
-  if (state.loading) {
-    return (
-      <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
-        <Loader2 className="text-primary h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
+  if (state.loading) return <VoteKonfirmasiSkeleton />;
+  if (!state.candidate) return null;
 
-  if (state.error && !state.candidate) {
-    return (
-      <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
-        <div className="container mx-auto max-w-md px-4">
-          <Card className="border-destructive/40 bg-card/95 w-full">
-            <CardContent className="space-y-4 py-6 text-center">
-              <Alert variant="destructive" className="text-sm">
-                <AlertDescription>{state.error}</AlertDescription>
-              </Alert>
-              <Button
-                variant="outline"
-                size="sm"
-                className="font-mono text-[11px] tracking-[0.16em] uppercase"
-                onClick={() => router.replace("/vote")}
-              >
-                Kembali ke Halaman Token
-              </Button>
+  const anyC = state.candidate as any;
+  const photoUrl = anyC.photoUrl ?? anyC.photo_url ?? anyC.photoURL ?? null;
+
+  return (
+    <VoteShell>
+      <div className="space-y-7 pb-[calc(env(safe-area-inset-bottom)+7.5rem)]">
+        <VoteHeader
+          step={3}
+          eyebrow="KONFIRMASI"
+          title="Konfirmasi pilihan Anda."
+          description="Suara tidak dapat diubah setelah dikirim. Pastikan pasangan calon yang Anda pilih sudah benar."
+          electionName={state.election?.name ?? null}
+          electionRange={electionRange}
+        />
+
+        <div className="mx-auto w-full max-w-md space-y-4">
+          <Card className="border-border/80 bg-card/95 gap-0 overflow-hidden p-0 py-0 shadow-sm">
+            <CardContent className="p-0">
+              <div className="bg-muted relative aspect-[3/4] w-full overflow-hidden">
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={`Foto pasangan calon ${anyC.shortName}`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <div className="text-muted-foreground flex h-full w-full items-center justify-center">
+                    <span className="font-mono text-[11px] tracking-[0.18em] uppercase">
+                      tanpa foto
+                    </span>
+                  </div>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
+
+                <div className="absolute top-3 left-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-lg font-bold text-black shadow-sm backdrop-blur">
+                  {anyC.number}
+                </div>
+
+                <div className="absolute right-3 bottom-3 left-3">
+                  <p className="font-mono text-[10px] tracking-[0.18em] text-white/80 uppercase">
+                    pasangan calon
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-lg font-semibold text-white">
+                    {anyC.shortName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4 px-5 pt-4 pb-5">
+                <div className="space-y-1 text-center">
+                  <p className="text-xl font-semibold">{anyC.shortName}</p>
+                  <p className="text-muted-foreground text-sm">
+                    Ketua: {anyC.ketuaName} • Wakil: {anyC.wakilName}
+                  </p>
+                </div>
+
+                {state.error ? (
+                  <Alert variant="destructive" className="text-xs">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{state.error}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <div className="bg-muted/50 text-muted-foreground space-y-2 rounded-md border px-3 py-2 text-sm">
+                  <p>
+                    Setelah menekan{" "}
+                    <span className="text-foreground font-semibold">Kirim Suara</span>, token Anda
+                    akan dinonaktifkan dan suara tidak dapat diubah.
+                  </p>
+                  <p>Pastikan Anda sudah yakin dengan pilihan sebelum melanjutkan.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    );
-  }
 
-  if (!state.candidate) return null;
+      <div className="bg-background/90 fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur">
+        <div className="container mx-auto max-w-5xl px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground hidden text-sm md:block">
+              Pastikan pilihan sudah sesuai sebelum mengirim suara.
+            </p>
 
-  const { candidate } = state;
-
-  return (
-    <div className="bg-background text-foreground min-h-screen">
-      <div className="container mx-auto flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-3xl space-y-6 py-10 md:py-16">
-          <section className="space-y-3">
-            <VoteStepIndicator step={3} />
-
-            <div className="space-y-2">
-              <h1 className="text-2xl font-semibold tracking-tight md:text-4xl">
-                Konfirmasi pilihan Anda.
-              </h1>
-              <p className="text-muted-foreground max-w-xl text-sm md:text-base">
-                Suara tidak dapat diubah setelah dikirim. Pastikan pasangan calon yang Anda pilih
-                sudah benar.
-              </p>
-            </div>
-          </section>
-
-          <Card className="border-border/80 bg-card/95 mx-auto mt-2 w-full max-w-md shadow-sm">
-            <CardHeader className="space-y-4 text-center">
-              <div className="bg-primary text-primary-foreground mx-auto flex h-20 w-20 items-center justify-center rounded-full text-4xl font-bold">
-                {candidate.number}
-              </div>
-              <div className="space-y-1">
-                <CardTitle className="text-xl font-semibold">{candidate.shortName}</CardTitle>
-                <CardDescription className="text-sm">
-                  Ketua: {candidate.ketuaName} • Wakil: {candidate.wakilName}
-                </CardDescription>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {state.error && (
-                <Alert variant="destructive" className="text-xs">
-                  <AlertDescription>{state.error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="bg-muted text-muted-foreground space-y-2 rounded-md px-3 py-2 text-sm">
-                <p>
-                  Setelah menekan <span className="text-foreground font-semibold">Kirim Suara</span>
-                  , token Anda akan dinonaktifkan dan suara tidak dapat diubah.
-                </p>
-                <p>Pastikan Anda sudah yakin dengan pilihan sebelum melanjutkan.</p>
-              </div>
-            </CardContent>
-
-            <CardFooter className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-between">
+            <div className="grid w-full grid-cols-2 gap-2 md:w-auto">
               <Button
                 type="button"
                 variant="outline"
-                className="w-full sm:flex-1"
+                className="font-mono text-xs tracking-[0.18em] uppercase"
                 disabled={state.submitting}
                 onClick={() => router.push("/vote/surat-suara")}
               >
-                Kembali ganti pilihan
+                Ganti Pilihan
               </Button>
 
               <Button
                 type="button"
-                className="w-full sm:flex-1"
+                className="font-mono text-xs tracking-[0.18em] uppercase"
                 disabled={state.submitting}
                 onClick={handleSubmit}
               >
@@ -211,16 +274,13 @@ export default function KonfirmasiClient() {
                     Mengirim...
                   </>
                 ) : (
-                  <>
-                    <Vote className="mr-2 h-4 w-4" />
-                    Kirim Suara
-                  </>
+                  <>Kirim Suara</>
                 )}
               </Button>
-            </CardFooter>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </VoteShell>
   );
 }

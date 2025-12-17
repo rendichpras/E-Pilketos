@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { LockKeyhole, Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -16,6 +17,9 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet";
 
+import { API_BASE_URL } from "@/lib/config";
+import type { PublicActiveElectionResponse } from "@/lib/types";
+
 const navLinks = [
   { href: "/candidates", label: "Kandidat" },
   { href: "/results", label: "Hasil Hitung" },
@@ -24,6 +28,42 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname() || "/";
+  const [voteState, setVoteState] = useState<"loading" | "open" | "closed">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/public/elections/active`, {
+          cache: "no-store"
+        });
+        if (!res.ok) {
+          if (!cancelled) setVoteState("closed");
+          return;
+        }
+
+        const data = (await res.json()) as PublicActiveElectionResponse;
+        if (cancelled) return;
+        setVoteState(data?.activeElection ? "open" : "closed");
+      } catch {
+        if (!cancelled) setVoteState("closed");
+      }
+    }
+
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const voteEnabled = voteState === "open";
+  const voteLabel =
+    voteState === "loading"
+      ? "Memeriksa Jadwal..."
+      : voteState === "closed"
+        ? "Pemilihan Belum Dibuka"
+        : "Mulai Memilih";
 
   return (
     <header className="border-border bg-background/90 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-50 w-full border-b backdrop-blur">
@@ -48,7 +88,6 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Desktop navigation */}
         <nav className="hidden items-center gap-4 md:flex">
           <div className="flex items-center gap-1">
             {navLinks.map((item) => {
@@ -70,15 +109,27 @@ export function Navbar() {
               );
             })}
           </div>
-          <Button asChild size="sm" className="font-mono text-xs tracking-[0.16em] uppercase">
-            <Link href="/vote">Mulai Memilih</Link>
-          </Button>
+
+          {voteEnabled ? (
+            <Button asChild size="sm" className="font-mono text-xs tracking-[0.16em] uppercase">
+              <Link href="/vote">Mulai Memilih</Link>
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled
+              className="font-mono text-xs tracking-[0.16em] uppercase"
+            >
+              <LockKeyhole className="mr-2 h-4 w-4" />
+              {voteLabel}
+            </Button>
+          )}
 
           <div className="bg-border mx-1 hidden h-4 w-px md:block" />
           <ModeToggle />
         </nav>
 
-        {/* Mobile navigation */}
         <div className="flex items-center gap-2 md:hidden">
           <ModeToggle />
 
@@ -113,6 +164,21 @@ export function Navbar() {
                 <nav className="flex flex-col gap-1 px-4">
                   {navLinks.map((item) => {
                     const active = pathname.startsWith(item.href);
+
+                    if (item.href === "/vote" && !voteEnabled) {
+                      return (
+                        <div
+                          key={item.href}
+                          className={`flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-3 text-sm font-medium opacity-60 transition-colors ${
+                            active ? "bg-secondary text-foreground" : "text-muted-foreground"
+                          }`}
+                        >
+                          <LockKeyhole className="h-4 w-4" />
+                          {voteLabel}
+                        </div>
+                      );
+                    }
+
                     return (
                       <SheetClose asChild key={item.href}>
                         <Link

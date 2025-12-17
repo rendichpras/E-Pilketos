@@ -147,7 +147,6 @@ adminElectionsApp.put("/:id", async (c) => {
   return c.json(updated);
 });
 
-// DRAFT -> ACTIVE (auto close election lain yang ACTIVE)
 adminElectionsApp.post("/:id/activate", requireRole("SUPER_ADMIN"), async (c) => {
   const { id } = c.req.param();
 
@@ -198,7 +197,6 @@ adminElectionsApp.post("/:id/activate", requireRole("SUPER_ADMIN"), async (c) =>
   return c.json(updated);
 });
 
-// ACTIVE -> CLOSED
 adminElectionsApp.post("/:id/close", requireRole("SUPER_ADMIN"), async (c) => {
   const { id } = c.req.param();
 
@@ -289,7 +287,17 @@ adminElectionsApp.post("/:id/hide-results", requireRole("SUPER_ADMIN"), async (c
   return c.json(updated);
 });
 
-// Public: active election sekarang
+publicElectionsApp.get("/latest", async (c) => {
+  const rows = await db
+    .select()
+    .from(elections)
+    .where(ne(elections.status, "DRAFT"))
+    .orderBy(desc(elections.endAt))
+    .limit(1);
+
+  return c.json({ latestElection: rows[0] ?? null });
+});
+
 publicElectionsApp.get("/active", async (c) => {
   const now = new Date();
 

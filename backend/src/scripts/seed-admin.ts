@@ -7,7 +7,7 @@ async function main() {
   const [, , usernameArg, passwordArg] = process.argv;
 
   if (!usernameArg || !passwordArg) {
-    console.error("Usage: tsx server/src/scripts/seed-admin.ts <username> <password>");
+    console.error("Usage: tsx src/scripts/seed-admin.ts <username> <password>");
     process.exit(1);
   }
 

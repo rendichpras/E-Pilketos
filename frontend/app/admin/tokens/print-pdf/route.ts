@@ -37,7 +37,6 @@ export async function GET(req: NextRequest): Promise<Response> {
   const electionId = searchParams.get("electionId");
   const batch = searchParams.get("batch")?.trim() || undefined;
 
-  // HARD-LOCK: PDF hanya untuk token UNUSED
   const statusParam = (searchParams.get("status") || "UNUSED").toUpperCase();
   if (statusParam !== "UNUSED") {
     return new Response("PDF hanya bisa dibuat untuk token UNUSED.", { status: 400 });

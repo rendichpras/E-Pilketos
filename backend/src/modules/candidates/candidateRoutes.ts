@@ -231,7 +231,6 @@ adminCandidatesApp.delete("/:id", async (c) => {
   return c.json({ success: true });
 });
 
-// PUBLIC
 publicCandidatesApp.get("/", async (c) => {
   const electionSlug = c.req.query("electionSlug");
   const now = new Date();

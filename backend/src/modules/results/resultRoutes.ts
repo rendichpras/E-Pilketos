@@ -15,11 +15,6 @@ const publicQuerySchema = z.object({
   electionSlug: z.string().optional()
 });
 
-async function getElectionById(electionId: string) {
-  const [e] = await db.select().from(elections).where(eq(elections.id, electionId)).limit(1);
-  return e ?? null;
-}
-
 async function getElectionBySlug(slug: string) {
   const [e] = await db.select().from(elections).where(eq(elections.slug, slug)).limit(1);
   return e ?? null;
@@ -34,6 +29,17 @@ async function getActiveElectionNow() {
       and(eq(elections.status, "ACTIVE"), lte(elections.startAt, now), gte(elections.endAt, now))
     )
     .orderBy(desc(elections.startAt))
+    .limit(1);
+
+  return e ?? null;
+}
+
+async function getLatestPublicElection() {
+  const [e] = await db
+    .select()
+    .from(elections)
+    .where(eq(elections.isResultPublic, true))
+    .orderBy(desc(elections.endAt))
     .limit(1);
 
   return e ?? null;
@@ -93,7 +99,6 @@ async function buildResults(electionId: string) {
   };
 }
 
-// ADMIN: hasil by electionId
 adminResultsApp.get("/:electionId", async (c) => {
   const { electionId } = c.req.param();
 
@@ -103,7 +108,6 @@ adminResultsApp.get("/:electionId", async (c) => {
   return c.json(data);
 });
 
-// PUBLIC: hasil by slug (atau active election kalau slug kosong)
 publicResultsApp.get("/", async (c) => {
   const parsed = publicQuerySchema.safeParse({
     electionSlug: c.req.query("electionSlug") ?? undefined
@@ -111,7 +115,10 @@ publicResultsApp.get("/", async (c) => {
   if (!parsed.success) return c.json({ error: "Invalid query" }, 400);
 
   const slug = parsed.data.electionSlug?.trim();
-  const election = slug ? await getElectionBySlug(slug) : await getActiveElectionNow();
+
+  const election = slug
+    ? await getElectionBySlug(slug)
+    : ((await getActiveElectionNow()) ?? (await getLatestPublicElection()));
 
   if (!election) {
     return c.json({ election: null, totalVotes: 0, results: [] });
@@ -124,7 +131,6 @@ publicResultsApp.get("/", async (c) => {
   const data = await buildResults(election.id);
   if (!data) return c.json({ error: "Election not found" }, 404);
 
-  // Public tidak perlu tokenStats
   return c.json({
     election: data.election,
     totalVotes: data.totalVotes,

@@ -48,13 +48,10 @@ export function rateLimit(opts: {
     const id = opts.id(c);
     const key = keyFor(opts.prefix, id);
 
-    // Redis mode (production multi-instance)
     if (hasRedis()) {
       const redis = await getRedisClient();
 
-      // jika REDIS_URL ada tapi gagal connect, fallback ke memory mode
       if (!redis) {
-        // tetap lanjut agar service tidak mati total
         await next();
         return;
       }
@@ -101,7 +98,6 @@ export function rateLimit(opts: {
       return;
     }
 
-    // Memory mode (dev / single instance)
     const t = nowMs();
     const existing = memoryStore.get(key);
 

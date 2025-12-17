@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, eq, lte, gte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import type { AppEnv } from "../../app-env";
 import { db } from "../../db/client";
@@ -12,6 +12,12 @@ import { addSeconds, createSessionToken } from "../../utils/session";
 const tokenLoginSchema = z.object({
   token: z.string().min(1)
 });
+
+function normalizeToken(input: string): string | null {
+  const cleaned = input.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  if (cleaned.length !== 8) return null;
+  return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}`;
+}
 
 export const voterAuthApp = new Hono<AppEnv>();
 
@@ -29,28 +35,35 @@ voterAuthApp.post(
     if (!parsed.success)
       return c.json({ error: "Invalid body", details: parsed.error.flatten() }, 400);
 
-    const normalizedToken = parsed.data.token.trim().toUpperCase();
+    const normalizedToken = normalizeToken(parsed.data.token);
+    if (!normalizedToken) {
+      return c.json({ error: "Token tidak valid", code: "TOKEN_INVALID" }, 401);
+    }
+
     const now = new Date();
 
     const [row] = await db
       .select({ token: tokens, election: elections })
       .from(tokens)
       .innerJoin(elections, eq(tokens.electionId, elections.id))
-      .where(
-        and(
-          eq(tokens.token, normalizedToken),
-          eq(tokens.status, "UNUSED"),
-          eq(elections.status, "ACTIVE"),
-          lte(elections.startAt, now),
-          gte(elections.endAt, now)
-        )
-      )
+      .where(eq(tokens.token, normalizedToken))
       .limit(1);
 
     if (!row) {
+      return c.json({ error: "Token tidak valid", code: "TOKEN_INVALID" }, 401);
+    }
+
+    if (row.token.status !== "UNUSED") {
+      return c.json({ error: "Token sudah digunakan", code: "TOKEN_USED" }, 409);
+    }
+
+    const electionActive =
+      row.election.status === "ACTIVE" && row.election.startAt <= now && now <= row.election.endAt;
+
+    if (!electionActive) {
       return c.json(
-        { error: "Token tidak valid, sudah digunakan, atau pemilihan tidak aktif" },
-        401
+        { error: "Pemilihan tidak aktif atau di luar jadwal", code: "ELECTION_INACTIVE" },
+        400
       );
     }
 
@@ -59,7 +72,6 @@ voterAuthApp.post(
 
     await db.transaction(async (tx) => {
       await tx.delete(voterSessions).where(eq(voterSessions.tokenId, row.token.id));
-
       await tx.insert(voterSessions).values({
         tokenId: row.token.id,
         electionId: row.election.id,

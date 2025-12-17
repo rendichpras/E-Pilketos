@@ -72,7 +72,7 @@ adminTokensApp.post("/generate/:electionId", requireRole("SUPER_ADMIN"), async (
       } catch (e: unknown) {
         const pgErr = e as { code?: string; constraint?: string };
         if (pgErr?.code === "23505" && pgErr?.constraint === "tokens_election_token_unique")
-          continue; // retry
+          continue;
         throw e;
       }
     }
