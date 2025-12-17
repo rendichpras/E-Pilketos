@@ -1,9 +1,10 @@
 import type { Context, Next } from "hono";
-import { getCookie } from "hono/cookie";
+import { deleteCookie, getCookie } from "hono/cookie";
 import { and, eq, gt } from "drizzle-orm";
 import type { AppEnv } from "../app-env";
 import { db } from "../db/client";
 import { adminSessions, admins } from "../db/schema";
+import { env as appEnv } from "../env";
 
 export async function adminAuth(c: Context<AppEnv>, next: Next) {
   const sessionToken = getCookie(c, "admin_session");
@@ -23,6 +24,7 @@ export async function adminAuth(c: Context<AppEnv>, next: Next) {
 
   if (!row) {
     await db.delete(adminSessions).where(eq(adminSessions.sessionToken, sessionToken));
+    deleteCookie(c, "admin_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
     return c.json({ error: "Invalid or expired admin session" }, 401);
   }
 

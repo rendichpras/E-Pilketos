@@ -89,7 +89,9 @@ serve(
     port: env.PORT
   },
   (info) => {
-    console.log(`E-Pilketos API running on http://localhost:${info.port}/api/v1/health`);
+    console.log(
+      `E-Pilketos API running on http://localhost:${info.port}/api/v1/health (ready: /api/v1/health/ready)`
+    );
   }
 );
 

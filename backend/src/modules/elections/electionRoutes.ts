@@ -227,6 +227,36 @@ adminElectionsApp.post("/:id/close", requireRole("SUPER_ADMIN"), async (c) => {
   return c.json(updated);
 });
 
+adminElectionsApp.post("/:id/archive", requireRole("SUPER_ADMIN"), async (c) => {
+  const { id } = c.req.param();
+
+  const [target] = await db.select().from(elections).where(eq(elections.id, id)).limit(1);
+  if (!target) return c.json({ error: "Election not found" }, 404);
+
+  if (target.status !== "CLOSED") {
+    return c.json({ error: "Hanya election CLOSED yang bisa di-archive" }, 400);
+  }
+
+  const admin = c.get("admin");
+
+  const [updated] = await db
+    .update(elections)
+    .set({ status: "ARCHIVED", updatedAt: new Date() })
+    .where(eq(elections.id, id))
+    .returning();
+
+  if (admin) {
+    await db.insert(auditLogs).values({
+      adminId: admin.adminId,
+      electionId: updated.id,
+      action: "ARCHIVE_ELECTION",
+      metadata: { slug: updated.slug }
+    });
+  }
+
+  return c.json(updated);
+});
+
 adminElectionsApp.post("/:id/publish-results", requireRole("SUPER_ADMIN"), async (c) => {
   const { id } = c.req.param();
 
@@ -291,7 +321,7 @@ publicElectionsApp.get("/latest", async (c) => {
   const rows = await db
     .select()
     .from(elections)
-    .where(ne(elections.status, "DRAFT"))
+    .where(and(ne(elections.status, "DRAFT"), ne(elections.status, "ARCHIVED")))
     .orderBy(desc(elections.endAt))
     .limit(1);
 

@@ -5,11 +5,11 @@ import { getRedisClient, hasRedis } from "../utils/redis";
 
 export const healthApp = new Hono<AppEnv>();
 
-healthApp.get("/health", (c) => {
+healthApp.get("/", (c) => {
   return c.json({ ok: true });
 });
 
-healthApp.get("/health/ready", async (c) => {
+healthApp.get("/ready", async (c) => {
   try {
     await db.execute("select 1");
   } catch (e) {

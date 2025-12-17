@@ -7,6 +7,9 @@ const REDIS_URL = process.env.REDIS_URL;
 let client: RedisClient | null = null;
 let connectPromise: Promise<void> | null = null;
 
+let lastConnectErrorAt = 0;
+const CONNECT_COOLDOWN_MS = 10_000;
+
 export function hasRedis(): boolean {
   return Boolean(REDIS_URL);
 }
@@ -14,8 +17,17 @@ export function hasRedis(): boolean {
 export async function getRedisClient(): Promise<RedisClient | null> {
   if (!REDIS_URL) return null;
 
+  const now = Date.now();
+  if (now - lastConnectErrorAt < CONNECT_COOLDOWN_MS) return null;
+
   if (!client) {
-    client = createClient({ url: REDIS_URL });
+    client = createClient({
+      url: REDIS_URL,
+      socket: {
+        connectTimeout: 3_000,
+        reconnectStrategy: (retries) => Math.min(retries * 200, 2_000)
+      }
+    });
 
     client.on("error", (err) => {
       console.error("Redis error:", err);
@@ -25,7 +37,22 @@ export async function getRedisClient(): Promise<RedisClient | null> {
   }
 
   if (connectPromise) {
-    await connectPromise;
+    try {
+      await connectPromise;
+    } catch (err) {
+      lastConnectErrorAt = Date.now();
+      console.error("Redis connect failed:", err);
+
+      try {
+        client?.disconnect();
+      } catch {
+        // ignore
+      }
+
+      client = null;
+      connectPromise = null;
+      return null;
+    }
   }
 
   return client;

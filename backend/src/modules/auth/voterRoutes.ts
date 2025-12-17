@@ -42,30 +42,45 @@ voterAuthApp.post(
 
     const now = new Date();
 
-    const [row] = await db
+    const rows = await db
       .select({ token: tokens, election: elections })
       .from(tokens)
       .innerJoin(elections, eq(tokens.electionId, elections.id))
       .where(eq(tokens.token, normalizedToken))
-      .limit(1);
+      .limit(10);
 
-    if (!row) {
+    if (rows.length === 0) {
       return c.json({ error: "Token tidak valid", code: "TOKEN_INVALID" }, 401);
     }
 
-    if (row.token.status !== "UNUSED") {
+    const unusedRows = rows.filter((r) => r.token.status === "UNUSED");
+    if (unusedRows.length === 0) {
       return c.json({ error: "Token sudah digunakan", code: "TOKEN_USED" }, 409);
     }
 
-    const electionActive =
-      row.election.status === "ACTIVE" && row.election.startAt <= now && now <= row.election.endAt;
+    const activeUnused = unusedRows.filter((r) => {
+      const e = r.election;
+      return e.status === "ACTIVE" && e.startAt <= now && now <= e.endAt;
+    });
 
-    if (!electionActive) {
+    if (activeUnused.length === 0) {
       return c.json(
         { error: "Pemilihan tidak aktif atau di luar jadwal", code: "ELECTION_INACTIVE" },
         400
       );
     }
+
+    if (activeUnused.length > 1) {
+      return c.json(
+        {
+          error: "Token terdeteksi untuk lebih dari satu pemilihan yang aktif. Hubungi panitia.",
+          code: "TOKEN_AMBIGUOUS"
+        },
+        409
+      );
+    }
+
+    const row = activeUnused[0];
 
     const sessionToken = createSessionToken();
     const expiresAt = addSeconds(now, appEnv.VOTER_SESSION_TTL_SEC);

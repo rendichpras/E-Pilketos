@@ -11,10 +11,15 @@ export const runtime = "nodejs";
 const LIMIT_PER_PAGE = 1000;
 const MAX_TOKENS_HARD_CAP = 5000;
 
+function normalizeApiBase(base: string) {
+  const clean = base.replace(/\/+$/, "");
+  return clean.endsWith("/api/v1") ? clean : `${clean}/api/v1`;
+}
+
 function getApiBase(req: NextRequest) {
-  const fromEnv = process.env.NEXT_PUBLIC_API_URL;
-  if (fromEnv) return fromEnv.replace(/\/+$/, "");
-  return req.nextUrl.origin.replace(/\/+$/, "");
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (fromEnv) return normalizeApiBase(fromEnv);
+  return normalizeApiBase(req.nextUrl.origin);
 }
 
 function clampInt(value: string | null, def: number, min: number, max: number) {

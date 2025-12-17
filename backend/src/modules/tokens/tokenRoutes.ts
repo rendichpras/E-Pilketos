@@ -90,7 +90,7 @@ adminTokensApp.post("/generate/:electionId", requireRole("SUPER_ADMIN"), async (
   return c.json({ electionId, createdCount: count, batchLabel: batchLabel ?? null }, 201);
 });
 
-adminTokensApp.get("/:electionId", async (c) => {
+adminTokensApp.get("/:electionId", requireRole("SUPER_ADMIN"), async (c) => {
   const { electionId } = c.req.param();
 
   const [election] = await db.select().from(elections).where(eq(elections.id, electionId)).limit(1);

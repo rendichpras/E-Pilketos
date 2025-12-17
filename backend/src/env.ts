@@ -8,6 +8,18 @@ const envSchema = z
 
     CORS_ORIGIN: z.string().optional(),
 
+    TRUST_PROXY_HEADERS: z
+      .preprocess((v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string") {
+          const s = v.trim().toLowerCase();
+          if (s === "true" || s === "1" || s === "yes") return true;
+          if (s === "false" || s === "0" || s === "no" || s === "") return false;
+        }
+        return v;
+      }, z.boolean())
+      .default(false),
+
     COOKIE_DOMAIN: z.string().optional(),
     COOKIE_SAMESITE: z
       .preprocess(
@@ -22,7 +34,18 @@ const envSchema = z
         z.enum(["Lax", "Strict", "None"])
       )
       .default("Lax"),
-    COOKIE_SECURE: z.coerce.boolean().optional(),
+    COOKIE_SECURE: z
+      .preprocess((v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string") {
+          const s = v.trim().toLowerCase();
+          if (s === "true" || s === "1" || s === "yes") return true;
+          if (s === "false" || s === "0" || s === "no") return false;
+          if (s === "") return undefined;
+        }
+        return v;
+      }, z.boolean())
+      .optional(),
 
     ADMIN_SESSION_TTL_SEC: z.coerce
       .number()
