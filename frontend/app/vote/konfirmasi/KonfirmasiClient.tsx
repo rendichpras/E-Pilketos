@@ -7,6 +7,9 @@ import type { PublicCandidatesResponse, CandidatePair, Election } from "@/lib/ty
 import { VoteShell } from "@/components/vote/vote-shell";
 import { VoteHeader } from "@/components/vote/vote-header";
 import { VoteKonfirmasiSkeleton } from "@/components/vote/vote-skeletons";
+import { VoteSelectionSummary } from "@/components/vote/vote-selection-summary";
+import { VoteStateCard } from "@/components/vote/vote-state-card";
+import { VoteStepper } from "@/components/vote/vote-stepper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +18,7 @@ import { Loader2, Vote as VoteIcon, AlertCircle } from "lucide-react";
 type State = {
   loading: boolean;
   error: string | null;
+  errorCode: string | null;
   election: Election | null;
   candidate: CandidatePair | null;
   submitting: boolean;
@@ -52,6 +56,7 @@ export default function KonfirmasiClient() {
   const [state, setState] = useState<State>({
     loading: true,
     error: null,
+    errorCode: null,
     election: null,
     candidate: null,
     submitting: false
@@ -98,7 +103,8 @@ export default function KonfirmasiClient() {
           loading: false,
           election: data.election,
           candidate: found,
-          error: null
+          error: null,
+          errorCode: null
         }));
       } catch (err: any) {
         if (cancelled) return;
@@ -108,10 +114,22 @@ export default function KonfirmasiClient() {
           return;
         }
 
+        const code = err?.data?.code as string | undefined;
+        if (code === "ELECTION_INACTIVE") {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: null,
+            errorCode: code
+          }));
+          return;
+        }
+
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: err?.data?.error ?? "Gagal memuat data."
+          error: err?.data?.error ?? "Gagal memuat data.",
+          errorCode: null
         }));
       }
     }
@@ -136,6 +154,7 @@ export default function KonfirmasiClient() {
       await apiClient.post("/voter/vote", { candidatePairId: state.candidate.id });
       router.replace("/vote/sukses");
     } catch (err: any) {
+      const code = err?.data?.code as string | undefined;
       const msg: string = err?.data?.error ?? "";
 
       if (err?.status === 401) {
@@ -143,25 +162,70 @@ export default function KonfirmasiClient() {
         return;
       }
 
-      if (err?.status === 400 && msg.toLowerCase().includes("token sudah digunakan")) {
+      if (code === "TOKEN_USED") {
         router.replace("/vote/sukses?reason=token_used");
         return;
       }
 
-      if (err?.status === 400 && msg.toLowerCase().includes("pasangan calon tidak valid")) {
+      if (code === "CANDIDATE_INVALID") {
         router.replace("/vote/surat-suara?reason=invalid_choice");
+        return;
+      }
+
+      if (code === "ELECTION_INACTIVE") {
+        setState((prev) => ({
+          ...prev,
+          submitting: false,
+          error: null,
+          errorCode: code
+        }));
         return;
       }
 
       setState((prev) => ({
         ...prev,
         submitting: false,
-        error: msg || "Gagal menyimpan suara."
+        error: msg || "Gagal menyimpan suara.",
+        errorCode: null
       }));
     }
   }
 
   if (state.loading) return <VoteKonfirmasiSkeleton />;
+
+  if (state.errorCode === "ELECTION_INACTIVE") {
+    return (
+      <div className="bg-background text-foreground min-h-screen">
+        <div className="container mx-auto flex min-h-screen flex-col items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md space-y-5">
+            <VoteStepper step={3} />
+            <VoteStateCard
+              eyebrow="STATUS PEMILIHAN"
+              title="Pemilihan belum tersedia."
+              description="Status pemilihan belum ACTIVE atau berada di luar jadwal resmi."
+              actions={
+                <>
+                  <Button
+                    className="w-full font-mono text-xs tracking-[0.18em] uppercase"
+                    onClick={() => router.replace("/vote")}
+                  >
+                    Kembali
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full font-mono text-xs tracking-[0.18em] uppercase"
+                  >
+                    <a href="mailto:panitia@sekolah.id">Kontak Panitia</a>
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!state.candidate) return null;
 
   const anyC = state.candidate as any;
@@ -180,6 +244,8 @@ export default function KonfirmasiClient() {
         />
 
         <div className="mx-auto w-full max-w-md space-y-4">
+          <VoteSelectionSummary candidate={state.candidate} election={state.election} />
+
           <Card className="border-border/80 bg-card/95 gap-0 overflow-hidden p-0 py-0 shadow-sm">
             <CardContent className="p-0">
               <div className="bg-muted relative aspect-[3/4] w-full overflow-hidden">

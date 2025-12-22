@@ -2,6 +2,10 @@
 
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { loadVoteSelection } from "@/lib/vote-selection";
+import { VoteShell } from "@/components/vote/vote-shell";
+import { VoteHeader } from "@/components/vote/vote-header";
+import { VoteSelectionSummary } from "@/components/vote/vote-selection-summary";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Lock } from "lucide-react";
@@ -9,6 +13,7 @@ import { CheckCircle2, Lock } from "lucide-react";
 export default function SuksesClient() {
   const router = useRouter();
   const sp = useSearchParams();
+  const selection = useMemo(() => loadVoteSelection(), []);
 
   const copy = useMemo(() => {
     const reason = sp.get("reason");
@@ -25,27 +30,40 @@ export default function SuksesClient() {
   }, [sp]);
 
   return (
-    <div className="bg-background text-foreground min-h-screen">
-      <div className="container mx-auto flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
+    <VoteShell>
+      <div className="space-y-7 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+        <VoteHeader
+          step={3}
+          eyebrow="SUKSES"
+          title={copy.title}
+          description={copy.desc}
+          electionName={selection?.election?.name ?? null}
+          electionRange={null}
+        />
+
+        <div className="mx-auto w-full max-w-md space-y-4">
           <Card className="border-border/80 bg-card/95 shadow-sm">
             <CardContent className="space-y-6 py-8 text-center">
-              <div className="bg-muted/40 mx-auto inline-flex items-center rounded-full border px-3 py-1">
-                <span className="font-mono text-[11px] tracking-[0.18em] uppercase">
-                  pemungutan suara selesai
-                </span>
-              </div>
-
               <div className="flex justify-center">
                 <div className="bg-primary/10 text-primary flex h-14 w-14 items-center justify-center rounded-full">
                   <CheckCircle2 className="h-7 w-7" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
-                <p className="text-muted-foreground text-sm">{copy.desc}</p>
-              </div>
+              {selection ? (
+                <VoteSelectionSummary
+                  candidate={selection.candidate}
+                  election={selection.election}
+                  selectedAt={selection.selectedAt}
+                  title="Ringkasan Pilihan Anda"
+                />
+              ) : (
+                <div className="bg-muted/30 rounded-lg border p-4 text-left">
+                  <p className="text-muted-foreground text-sm">
+                    Ringkasan pilihan tidak tersedia. Suara Anda tetap telah tercatat.
+                  </p>
+                </div>
+              )}
 
               <div className="bg-muted/30 rounded-lg border p-4 text-left">
                 <div className="flex items-center justify-between gap-3">
@@ -80,10 +98,8 @@ export default function SuksesClient() {
               </div>
             </CardContent>
           </Card>
-
-          <div className="pb-[calc(env(safe-area-inset-bottom)+0.5rem)]" />
         </div>
       </div>
-    </div>
+    </VoteShell>
   );
 }

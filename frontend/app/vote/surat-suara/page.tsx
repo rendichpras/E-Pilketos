@@ -9,6 +9,8 @@ import { VoteShell } from "@/components/vote/vote-shell";
 import { VoteHeader } from "@/components/vote/vote-header";
 import { VoteSuratSuaraSkeleton } from "@/components/vote/vote-skeletons";
 import { VoteReasonAlert } from "@/components/vote/vote-reason-alert";
+import { VoteStateCard } from "@/components/vote/vote-state-card";
+import { VoteStepper } from "@/components/vote/vote-stepper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,6 +20,7 @@ import { cn } from "@/lib/cn";
 type State = {
   loading: boolean;
   error: string | null;
+  errorCode: string | null;
   election: Election | null;
   candidates: CandidatePair[];
   selectedId: string | null;
@@ -51,6 +54,7 @@ export default function VoteSuratSuaraPage() {
   const [state, setState] = useState<State>({
     loading: true,
     error: null,
+    errorCode: null,
     election: null,
     candidates: [],
     selectedId: null
@@ -88,7 +92,8 @@ export default function VoteSuratSuaraPage() {
           loading: false,
           election: data.election,
           candidates: data.candidates,
-          error: null
+          error: null,
+          errorCode: null
         }));
       } catch (err: any) {
         if (cancelled) return;
@@ -98,10 +103,22 @@ export default function VoteSuratSuaraPage() {
           return;
         }
 
+        const code = err?.data?.code as string | undefined;
+        if (code === "ELECTION_INACTIVE") {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: null,
+            errorCode: code
+          }));
+          return;
+        }
+
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: err?.data?.error ?? "Gagal memuat data."
+          error: err?.data?.error ?? "Gagal memuat data.",
+          errorCode: null
         }));
       }
     }
@@ -131,6 +148,40 @@ export default function VoteSuratSuaraPage() {
   }
 
   if (state.loading) return <VoteSuratSuaraSkeleton />;
+
+  if (state.errorCode === "ELECTION_INACTIVE") {
+    return (
+      <div className="bg-background text-foreground min-h-screen">
+        <div className="container mx-auto flex min-h-screen flex-col items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md space-y-5">
+            <VoteStepper step={2} />
+            <VoteStateCard
+              eyebrow="STATUS PEMILIHAN"
+              title="Pemilihan belum tersedia."
+              description="Status pemilihan belum ACTIVE atau berada di luar jadwal resmi."
+              actions={
+                <>
+                  <Button
+                    className="w-full font-mono text-xs tracking-[0.18em] uppercase"
+                    onClick={() => router.replace("/vote")}
+                  >
+                    Kembali
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full font-mono text-xs tracking-[0.18em] uppercase"
+                  >
+                    <a href="mailto:panitia@sekolah.id">Kontak Panitia</a>
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (state.error) {
     return (

@@ -4,9 +4,9 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const steps = [
-  { key: 1, label: "TOKEN" },
-  { key: 2, label: "SURAT SUARA" },
-  { key: 3, label: "KONFIRMASI" }
+  { key: 1, label: "MASUK TOKEN" },
+  { key: 2, label: "PILIH" },
+  { key: 3, label: "KONFIRMASI/SUKSES" }
 ] as const;
 
 export function VoteStepper({ step }: { step: 1 | 2 | 3 }) {

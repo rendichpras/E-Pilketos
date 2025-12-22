@@ -21,6 +21,17 @@ export function getVoteReason(
         variant: "default",
         message: "Token sudah digunakan. Jika ini tidak sesuai, hubungi panitia."
       };
+    case "token_ambiguous":
+      return {
+        variant: "destructive",
+        message:
+          "Token terdeteksi untuk lebih dari satu pemilihan aktif. Hubungi panitia untuk bantuan."
+      };
+    case "election_inactive":
+      return {
+        variant: "default",
+        message: "Pemilihan tidak aktif atau di luar jadwal."
+      };
     case "missing_choice":
       return {
         variant: "default",

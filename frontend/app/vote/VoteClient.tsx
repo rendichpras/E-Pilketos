@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { VoteStepper } from "@/components/vote/vote-stepper";
 import { VoteReasonAlert } from "@/components/vote/vote-reason-alert";
+import { VoteStateCard } from "@/components/vote/vote-state-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,10 +24,58 @@ function normalizeToken(raw: string) {
 
 export default function VoteClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [token, setToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const voteState = useMemo(() => {
+    const reason = searchParams.get("reason");
+    if (!reason) return null;
+
+    if (reason === "invalid_token") {
+      return {
+        title: "Token tidak valid.",
+        description: "Token tidak ditemukan atau formatnya tidak sesuai dengan data panitia.",
+        tone: "destructive" as const
+      };
+    }
+
+    if (reason === "token_used") {
+      return {
+        title: "Token sudah digunakan.",
+        description: "Token hanya berlaku satu kali. Jika Anda belum memilih, segera hubungi panitia.",
+        tone: "default" as const
+      };
+    }
+
+    if (reason === "session_expired") {
+      return {
+        title: "Sesi token berakhir.",
+        description: "Masuk kembali menggunakan token yang sama untuk melanjutkan pemilihan.",
+        tone: "default" as const
+      };
+    }
+
+    if (reason === "token_ambiguous") {
+      return {
+        title: "Token terdeteksi ganda.",
+        description: "Token Anda terkait dengan lebih dari satu pemilihan aktif. Hubungi panitia.",
+        tone: "destructive" as const
+      };
+    }
+
+    if (reason === "election_inactive") {
+      return {
+        title: "Pemilihan belum tersedia.",
+        description: "Status pemilihan belum ACTIVE atau berada di luar jadwal.",
+        tone: "default" as const
+      };
+    }
+
+    return null;
+  }, [searchParams]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,10 +97,63 @@ export default function VoteClient() {
       await apiClient.post("/auth/token-login", { token: formatted });
       router.replace("/vote/surat-suara");
     } catch (err: any) {
+      const code = err?.data?.code as string | undefined;
+      if (code === "TOKEN_INVALID") {
+        router.replace("/vote?reason=invalid_token");
+        return;
+      }
+      if (code === "TOKEN_USED") {
+        router.replace("/vote?reason=token_used");
+        return;
+      }
+      if (code === "ELECTION_INACTIVE") {
+        router.replace("/vote?reason=election_inactive");
+        return;
+      }
+      if (code === "TOKEN_AMBIGUOUS") {
+        router.replace("/vote?reason=token_ambiguous");
+        return;
+      }
       setError(err?.data?.error ?? "Gagal memverifikasi token.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (voteState) {
+    return (
+      <div className="bg-background text-foreground min-h-screen">
+        <div className="container mx-auto flex min-h-screen flex-col items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md space-y-5">
+            <VoteStepper step={1} />
+
+            <VoteStateCard
+              eyebrow="TOKEN"
+              title={voteState.title}
+              description={voteState.description}
+              tone={voteState.tone}
+              actions={
+                <>
+                  <Button
+                    className="w-full font-mono text-xs tracking-[0.18em] uppercase"
+                    onClick={() => router.replace("/vote")}
+                  >
+                    Kembali
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full font-mono text-xs tracking-[0.18em] uppercase"
+                  >
+                    <a href="mailto:panitia@sekolah.id">Kontak Panitia</a>
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
