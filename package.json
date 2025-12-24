@@ -1,0 +1,28 @@
+{
+  "name": "e-pilketos",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream dev",
+    "dev:api": "pnpm --filter @e-pilketos/api dev",
+    "dev:web": "pnpm --filter @e-pilketos/web dev",
+
+    "db:generate": "pnpm --filter @e-pilketos/api db:generate",
+    "db:migrate": "pnpm --filter @e-pilketos/api db:migrate",
+
+    "maintenance:run": "pnpm --filter @e-pilketos/api maintenance:run",
+    "integrity:check": "pnpm --filter @e-pilketos/api integrity:check",
+    "autoClose:run": "pnpm --filter @e-pilketos/api autoClose:run",
+    "seed:admin": "pnpm --filter @e-pilketos/api seed:admin",
+
+    "format": "pnpm -r --parallel --stream format",
+    "format:check": "pnpm -r --parallel --stream format:check",
+
+    "lint": "pnpm --filter @e-pilketos/web lint",
+    "build": "pnpm --filter @e-pilketos/web build",
+    "start": "pnpm --filter @e-pilketos/web start"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@e-pilketos/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "maintenance:run": "tsx src/scripts/maintenance.ts",
+    "integrity:check": "tsx src/scripts/integrity-check.ts",
+    "autoClose:run": "tsx src/scripts/auto-close.ts",
+    "seed:admin": "tsx src/scripts/seed-admin.ts",
+    "format": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --write",
+    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.7",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.11.1",
+    "pg": "^8.16.3",
+    "redis": "^5.10.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^25.0.3",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.8",
+    "prettier": "^3.7.4",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

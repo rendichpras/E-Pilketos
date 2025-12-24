@@ -132,15 +132,16 @@ Cetak token PDF:
 
 ### Frontend (Next.js)
 
-- App Router di `app/`.
-- UI components di `components/ui/`.
-- Akses API via `lib/api-client.ts` (menggunakan `NEXT_PUBLIC_API_URL`).
+- App Router di `apps/web/src/app/`.
+- UI components di `apps/web/src/components/ui/`.
+- Akses API via `apps/web/src/lib/api-client.ts` (menggunakan `NEXT_PUBLIC_API_URL`).
 - Admin layout mengecek sesi admin via `GET /api/v1/admin/auth/me`.
 
 ### Backend (Hono)
 
 - Base path: `/api/v1`
-- Modul:
+- Route handlers ada di `apps/api/src/routes/` (mis. `adminAuth.ts`, `elections.ts`, dst.).
+- Endpoint:
   - `/admin/auth`, `/admin/elections`, `/admin/candidates`, `/admin/tokens`, `/admin/results`
   - `/auth` (voter token login/logout)
   - `/voter` (candidate list dan vote)
@@ -158,42 +159,40 @@ Cetak token PDF:
 
 ## Instalasi (Development)
 
-1. Install dependency:
+1. Install dependency (root workspace):
 
 ```bash
 bun install
 ```
 
-2. Buat `.env` dari `.env.example`:
+2. Buat `.env` untuk masing-masing app:
 
 ```bash
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 ```
 
 3. Isi variabel penting minimal:
 
-- `DATABASE_URL`
-- `CORS_ORIGIN`
-- `NEXT_PUBLIC_API_URL`
+- `apps/api/.env`: `DATABASE_URL`, `CORS_ORIGIN`
+- `apps/web/.env`: `NEXT_PUBLIC_API_URL`
 
-4. Migrasi database:
+4. Migrasi database (dari root):
 
 ```bash
 bun run db:generate
 bun run db:migrate
 ```
 
-5. Jalankan backend:
-
-```bash
-bun run dev:be
-```
-
-6. Jalankan frontend:
+5. Jalankan API + Web bersamaan:
 
 ```bash
 bun run dev
 ```
+
+Alternatif:
+- hanya API: `bun run dev:api`
+- hanya Web: `bun run dev:web`
 
 ---
 
@@ -251,7 +250,7 @@ Lihat `.env.example` untuk daftar lengkap. Variabel utama:
 
 ## Jobs / Scripts Operasional
 
-Script tersedia di `server/src/scripts/`:
+Script tersedia di `apps/api/src/scripts/`:
 
 1. Auto close election (menutup election ACTIVE yang melewati `endAt`):
 
@@ -274,8 +273,12 @@ bun run integrity:check
 4. Seed SUPER_ADMIN (buat akun super admin langsung ke database):
 
 ```bash
-bun tsx server/src/scripts/seed-admin.ts <username> <password>
+bun run seed:admin -- <username> <password>
 ```
+
+(Alternatif: `cd apps/api && bun tsx src/scripts/seed-admin.ts <username> <password>`.)
+
+
 
 ---
 
