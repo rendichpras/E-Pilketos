@@ -17,13 +17,11 @@ import { AlertCircle, BarChart3, CalendarX2, LockKeyhole, Trophy } from "lucide-
 
 export const dynamic = "force-dynamic";
 
-type FetchResult =
-  | {
-    status: number;
-    data: PublicResultsResponse | null;
-    error?: string | null;
-  }
-  | null;
+type FetchResult = {
+  status: number;
+  data: PublicResultsResponse | null;
+  error?: string | null;
+} | null;
 
 async function getResults(): Promise<FetchResult> {
   try {
@@ -74,7 +72,12 @@ function StateCard({
           </div>
 
           {action ? (
-            <Button asChild variant="outline" size="sm" className="mt-2 font-mono text-[11px] tracking-[0.16em] uppercase">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="mt-2 font-mono text-[11px] tracking-[0.16em] uppercase"
+            >
               <Link href={action.href}>{action.label}</Link>
             </Button>
           ) : null}
@@ -169,8 +172,7 @@ export default async function HasilPage() {
   const { totalVotes, list, maxVotes, topCount } = buildRankedCandidates(result.data);
 
   const hasVotes = totalVotes > 0;
-  const leadingLabel =
-    !hasVotes ? "Belum ada suara" : topCount > 1 ? "Teratas (seri)" : "Unggul";
+  const leadingLabel = !hasVotes ? "Belum ada suara" : topCount > 1 ? "Teratas (seri)" : "Unggul";
 
   return (
     <PageShell>
@@ -185,7 +187,8 @@ export default async function HasilPage() {
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{election.name}</h1>
               <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
-                Rekapitulasi perolehan suara untuk setiap pasangan calon. Persentase dihitung dari total suara yang sudah masuk.
+                Rekapitulasi perolehan suara untuk setiap pasangan calon. Persentase dihitung dari
+                total suara yang sudah masuk.
               </p>
             </div>
 
@@ -195,7 +198,10 @@ export default async function HasilPage() {
                   <span className="text-muted-foreground font-mono tracking-[0.18em] uppercase">
                     status penghitungan
                   </span>
-                  <Badge variant="outline" className="font-mono text-[0.65rem] tracking-[0.16em] uppercase">
+                  <Badge
+                    variant="outline"
+                    className="font-mono text-[0.65rem] tracking-[0.16em] uppercase"
+                  >
                     {hasVotes ? "Suara Masuk" : "Belum Ada Suara"}
                   </Badge>
                 </div>
@@ -213,7 +219,8 @@ export default async function HasilPage() {
         {list.length === 0 ? (
           <Card className="bg-muted/40 border-dashed">
             <CardContent className="text-muted-foreground py-10 text-center text-sm">
-              Belum ada kandidat yang terdaftar untuk pemilihan ini, sehingga hasil tidak dapat ditampilkan.
+              Belum ada kandidat yang terdaftar untuk pemilihan ini, sehingga hasil tidak dapat
+              ditampilkan.
             </CardContent>
           </Card>
         ) : (
@@ -237,7 +244,9 @@ export default async function HasilPage() {
                           <div
                             className={cn(
                               "flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold md:h-12 md:w-12",
-                              isTop ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              isTop
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
                             )}
                           >
                             {c.number}
@@ -292,17 +301,22 @@ export default async function HasilPage() {
                 <CardHeader className="space-y-2">
                   <CardTitle className="text-base">Catatan</CardTitle>
                   <CardDescription className="text-sm">
-                    Jika hasil masih berubah, panitia mungkin sedang menyelesaikan proses rekapitulasi.
+                    Jika hasil masih berubah, panitia mungkin sedang menyelesaikan proses
+                    rekapitulasi.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="rounded-lg border bg-muted/10 p-3 text-sm text-muted-foreground">
+                  <div className="bg-muted/10 text-muted-foreground rounded-lg border p-3 text-sm">
                     Persentase dihitung secara otomatis berdasarkan total suara yang sudah tercatat.
                   </div>
                 </CardContent>
               </Card>
 
-              <Button asChild variant="outline" className="w-full font-mono text-[11px] tracking-[0.16em] uppercase">
+              <Button
+                asChild
+                variant="outline"
+                className="w-full font-mono text-[11px] tracking-[0.16em] uppercase"
+              >
                 <Link href="/">Kembali ke Beranda</Link>
               </Button>
             </aside>

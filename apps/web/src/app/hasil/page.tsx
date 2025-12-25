@@ -9,7 +9,14 @@ import { Footer } from "@/components/footer";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
@@ -17,13 +24,11 @@ import { AlertCircle, BarChart3, CalendarX2, LockKeyhole, RefreshCcw, Trophy } f
 
 export const dynamic = "force-dynamic";
 
-type FetchResult =
-  | {
-    status: number;
-    data: PublicResultsResponse | null;
-    error?: string | null;
-  }
-  | null;
+type FetchResult = {
+  status: number;
+  data: PublicResultsResponse | null;
+  error?: string | null;
+} | null;
 
 async function getResults(): Promise<FetchResult> {
   try {
@@ -126,7 +131,7 @@ function buildRanked(data: PublicResultsResponse) {
   const maxVotes = ranked.length ? Math.max(...ranked.map((x) => x.votes)) : 0;
   const leaders = maxVotes > 0 ? ranked.filter((x) => x.votes === maxVotes) : [];
   const secondVotes =
-    ranked.length >= 2 ? ranked.filter((x) => x.votes < maxVotes).map((x) => x.votes)[0] ?? 0 : 0;
+    ranked.length >= 2 ? (ranked.filter((x) => x.votes < maxVotes).map((x) => x.votes)[0] ?? 0) : 0;
 
   const margin = maxVotes > 0 && leaders.length === 1 ? Math.max(0, maxVotes - secondVotes) : 0;
 
@@ -220,21 +225,26 @@ export default async function PublicResultsPage() {
               </div>
 
               <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{election.name}</h1>
+                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                  {election.name}
+                </h1>
                 <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
-                  Rekapitulasi perolehan suara per pasangan calon. Persentase dihitung dari total suara yang sudah masuk.
+                  Rekapitulasi perolehan suara per pasangan calon. Persentase dihitung dari total
+                  suara yang sudah masuk.
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  Diperbarui: <span className="font-medium text-foreground">{fmtJakarta(now)}</span>
+                  Diperbarui: <span className="text-foreground font-medium">{fmtJakarta(now)}</span>
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button asChild variant="outline" className="font-mono text-[11px] tracking-[0.16em] uppercase">
-                <Link href="/">
-                  Kembali
-                </Link>
+              <Button
+                asChild
+                variant="outline"
+                className="font-mono text-[11px] tracking-[0.16em] uppercase"
+              >
+                <Link href="/">Kembali</Link>
               </Button>
               <Button asChild className="font-mono text-[11px] tracking-[0.16em] uppercase">
                 <Link href="/hasil">
@@ -263,24 +273,29 @@ export default async function PublicResultsPage() {
               </CardHeader>
 
               <CardContent className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border bg-muted/10 p-4">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">total suara</p>
+                <div className="bg-muted/10 rounded-xl border p-4">
+                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
+                    total suara
+                  </p>
                   <p className="mt-1 text-2xl font-semibold">{fmtNumber(totalVotes)}</p>
                 </div>
 
-                <div className="rounded-xl border bg-muted/10 p-4">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">jumlah paslon</p>
+                <div className="bg-muted/10 rounded-xl border p-4">
+                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
+                    jumlah paslon
+                  </p>
                   <p className="mt-1 text-2xl font-semibold">{fmtNumber(ranked.length)}</p>
                 </div>
 
-                <div className="rounded-xl border bg-muted/10 p-4">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">{leaderLabel}</p>
-                  <p className="mt-1 line-clamp-2 text-sm font-semibold">
-                    {leaderName ?? "-"}
+                <div className="bg-muted/10 rounded-xl border p-4">
+                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
+                    {leaderLabel}
                   </p>
+                  <p className="mt-1 line-clamp-2 text-sm font-semibold">{leaderName ?? "-"}</p>
                   {!isTie && hasVotes ? (
                     <p className="text-muted-foreground mt-1 text-xs">
-                      Margin: <span className="font-medium text-foreground">{fmtNumber(margin)}</span> suara
+                      Margin:{" "}
+                      <span className="text-foreground font-medium">{fmtNumber(margin)}</span> suara
                     </p>
                   ) : (
                     <p className="text-muted-foreground mt-1 text-xs">—</p>
@@ -297,10 +312,10 @@ export default async function PublicResultsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-lg border bg-muted/10 p-3 text-sm text-muted-foreground">
+                <div className="bg-muted/10 text-muted-foreground rounded-lg border p-3 text-sm">
                   Jika hasil belum tampil, kemungkinan panitia belum membuka publikasi.
                 </div>
-                <div className="rounded-lg border bg-muted/10 p-3 text-sm text-muted-foreground">
+                <div className="bg-muted/10 text-muted-foreground rounded-lg border p-3 text-sm">
                   Persentase dihitung otomatis dari total suara yang sudah masuk.
                 </div>
               </CardContent>
@@ -321,11 +336,17 @@ export default async function PublicResultsPage() {
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold tracking-tight md:text-xl">Perolehan suara</h2>
               {hasVotes ? (
-                <Badge variant="outline" className="font-mono text-[11px] tracking-[0.16em] uppercase">
+                <Badge
+                  variant="outline"
+                  className="font-mono text-[11px] tracking-[0.16em] uppercase"
+                >
                   {isTie ? "seri" : "live"}
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="font-mono text-[11px] tracking-[0.16em] uppercase">
+                <Badge
+                  variant="secondary"
+                  className="font-mono text-[11px] tracking-[0.16em] uppercase"
+                >
                   kosong
                 </Badge>
               )}
@@ -350,7 +371,9 @@ export default async function PublicResultsPage() {
                           <div
                             className={cn(
                               "flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold",
-                              isTop ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              isTop
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
                             )}
                           >
                             {c.number}
@@ -376,9 +399,7 @@ export default async function PublicResultsPage() {
 
                           <div className="text-right">
                             <p className="text-sm font-semibold">{fmtNumber(c.votes)} suara</p>
-                            <p className="text-muted-foreground text-xs">
-                              {percent.toFixed(1)}%
-                            </p>
+                            <p className="text-muted-foreground text-xs">{percent.toFixed(1)}%</p>
                           </div>
                         </div>
                       </div>
@@ -388,9 +409,10 @@ export default async function PublicResultsPage() {
                       <Progress value={percent} className="h-2.5" />
                     </CardContent>
 
-                    <CardFooter className="border-t bg-muted/10">
+                    <CardFooter className="bg-muted/10 border-t">
                       <p className="text-muted-foreground text-xs">
-                        No. {String(c.number).padStart(2, "0")} - {hasVotes ? "Suara masuk" : "Belum ada suara masuk"}
+                        No. {String(c.number).padStart(2, "0")} -{" "}
+                        {hasVotes ? "Suara masuk" : "Belum ada suara masuk"}
                       </p>
                     </CardFooter>
                   </Card>

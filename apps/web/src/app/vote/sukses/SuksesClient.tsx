@@ -87,19 +87,11 @@ export default function SuksesClient() {
           </CardContent>
 
           <CardFooter className="bg-muted/10 flex flex-col gap-2 border-t">
-            <Button
-              asChild
-              size="lg"
-              className="w-full"
-            >
+            <Button asChild size="lg" className="w-full">
               <Link href={copy.primaryCta.href}>{copy.primaryCta.label}</Link>
             </Button>
 
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled
-            >
+            <Button variant="outline" className="w-full" disabled>
               Hasil Belum Dipublikasikan
             </Button>
           </CardFooter>
