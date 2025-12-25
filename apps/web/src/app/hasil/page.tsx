@@ -2,25 +2,17 @@ import Link from "next/link";
 
 import { API_BASE_URL } from "@/lib/config";
 import type { Election, PublicResultsResponse } from "@/lib/types";
-import { cn } from "@/lib/cn";
 
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-import { AlertCircle, BarChart3, CalendarX2, LockKeyhole, RefreshCcw, Trophy } from "lucide-react";
+import { AlertCircle, BarChart3, CalendarX2, LockKeyhole, Trophy } from "lucide-react";
+
+import { VotesBarChart, type VotesChartDatum } from "./chart";
 
 export const dynamic = "force-dynamic";
 
@@ -83,23 +75,19 @@ function StateCard({
 }) {
   return (
     <div className="container mx-auto flex max-w-6xl items-center justify-center px-4 py-12 md:px-6">
-      <Card className="bg-muted/40 w-full max-w-md border-dashed">
+      <Card className="bg-muted/30 w-full max-w-md border-dashed">
         <CardContent className="flex flex-col items-center gap-4 py-8 text-center text-sm">
-          <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full">
+          <div className="bg-background/60 text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full border">
             {icon}
           </div>
+
           <div className="space-y-1">
-            <p className="font-medium">{title}</p>
-            <p className="text-muted-foreground text-xs">{description}</p>
+            <p className="text-base font-semibold">{title}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
           </div>
 
           {action ? (
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="mt-2 font-mono text-[11px] tracking-[0.16em] uppercase"
-            >
+            <Button asChild variant="outline" size="sm" className="mt-2">
               <Link href={action.href}>{action.label}</Link>
             </Button>
           ) : null}
@@ -130,12 +118,12 @@ function buildRanked(data: PublicResultsResponse) {
 
   const maxVotes = ranked.length ? Math.max(...ranked.map((x) => x.votes)) : 0;
   const leaders = maxVotes > 0 ? ranked.filter((x) => x.votes === maxVotes) : [];
-  const secondVotes =
-    ranked.length >= 2 ? (ranked.filter((x) => x.votes < maxVotes).map((x) => x.votes)[0] ?? 0) : 0;
 
-  const margin = maxVotes > 0 && leaders.length === 1 ? Math.max(0, maxVotes - secondVotes) : 0;
+  return { totalVotes, ranked, maxVotes, leaders };
+}
 
-  return { totalVotes, ranked, maxVotes, leaders, margin };
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
 }
 
 export default async function PublicResultsPage() {
@@ -146,9 +134,9 @@ export default async function PublicResultsPage() {
       <PageShell>
         <StateCard
           icon={<AlertCircle className="h-6 w-6" />}
-          title="Tidak dapat terhubung ke server."
-          description="Periksa koneksi Anda dan coba beberapa saat lagi."
-          action={{ label: "Kembali", href: "/" }}
+          title="Gagal memuat hasil."
+          description="Tidak dapat terhubung ke server. Periksa koneksi Anda lalu coba lagi."
+          action={{ label: "Kembali ke Beranda", href: "/" }}
         />
       </PageShell>
     );
@@ -160,8 +148,8 @@ export default async function PublicResultsPage() {
         <StateCard
           icon={<LockKeyhole className="h-6 w-6" />}
           title="Hasil belum dipublikasikan."
-          description={result.error ?? "Panitia belum membuka akses rekapitulasi hasil."}
-          action={{ label: "Kembali", href: "/" }}
+          description={result.error ?? "Panitia belum membuka akses hasil untuk publik."}
+          action={{ label: "Kembali ke Beranda", href: "/" }}
         />
       </PageShell>
     );
@@ -172,9 +160,9 @@ export default async function PublicResultsPage() {
       <PageShell>
         <StateCard
           icon={<CalendarX2 className="h-6 w-6" />}
-          title="Belum ada hasil pemilihan yang tersedia."
-          description="Tidak ada pemilihan yang hasilnya sudah dipublikasikan saat ini."
-          action={{ label: "Kembali", href: "/" }}
+          title="Belum ada hasil yang tersedia."
+          description="Saat ini tidak ada pemilihan yang hasilnya sudah dipublikasikan."
+          action={{ label: "Kembali ke Beranda", href: "/" }}
         />
       </PageShell>
     );
@@ -185,13 +173,13 @@ export default async function PublicResultsPage() {
       <PageShell>
         <StateCard
           icon={<AlertCircle className="h-6 w-6" />}
-          title="Data hasil pemilihan belum dapat ditampilkan."
+          title="Hasil belum dapat ditampilkan."
           description={
             result.error
               ? result.error
-              : "Coba beberapa saat lagi atau hubungi panitia jika masalah terus berlanjut."
+              : "Coba lagi nanti. Jika masalah berlanjut, hubungi panitia."
           }
-          action={{ label: "Kembali", href: "/" }}
+          action={{ label: "Kembali ke Beranda", href: "/" }}
         />
       </PageShell>
     );
@@ -200,225 +188,76 @@ export default async function PublicResultsPage() {
   const election: Election = result.data.election;
   const now = new Date();
 
-  const { totalVotes, ranked, maxVotes, leaders, margin } = buildRanked(result.data);
+  const { totalVotes, ranked, maxVotes } = buildRanked(result.data);
 
-  const hasVotes = totalVotes > 0;
-  const isTie = hasVotes && leaders.length > 1;
-
-  const leaderLabel = !hasVotes ? "Belum ada suara" : isTie ? "Teratas (seri)" : "Unggul";
-
-  const leaderName = !leaders.length
-    ? null
-    : leaders.length === 1
-      ? leaders[0].shortName || `Paslon ${leaders[0].number}`
-      : `${leaders.length} paslon`;
+  const chartData: VotesChartDatum[] = ranked.map((c) => {
+    const percent = totalVotes > 0 ? (c.votes / totalVotes) * 100 : 0;
+    const axis = `#${pad2(c.number)}`;
+    return {
+      id: c.id,
+      number: c.number,
+      name: c.shortName || `Paslon ${c.number}`,
+      axis,
+      votes: c.votes,
+      percent
+    };
+  });
 
   return (
     <PageShell>
-      <div className="container mx-auto max-w-6xl px-4 py-10 md:px-6 lg:py-14">
+      <div className="container mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-10 lg:py-14">
         <section className="space-y-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-3">
-              <div className="text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-                <BarChart3 className="h-3.5 w-3.5" />
-                <span className="font-mono tracking-[0.18em] uppercase">hasil pemilihan</span>
-              </div>
-
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                  {election.name}
-                </h1>
-                <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
-                  Rekapitulasi perolehan suara per pasangan calon. Persentase dihitung dari total
-                  suara yang sudah masuk.
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Diperbarui: <span className="text-foreground font-medium">{fmtJakarta(now)}</span>
-                </p>
-              </div>
+          <div className="space-y-3">
+            <div className="bg-background/60 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>Hasil Pemilihan</span>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button
-                asChild
-                variant="outline"
-                className="font-mono text-[11px] tracking-[0.16em] uppercase"
-              >
-                <Link href="/">Kembali</Link>
-              </Button>
-              <Button asChild className="font-mono text-[11px] tracking-[0.16em] uppercase">
-                <Link href="/hasil">
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Muat Ulang
-                </Link>
-              </Button>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{election.name}</h1>
+              <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
+                Ringkasan hasil untuk publik. Ketuk bar pada grafik untuk melihat detail paslon.
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Diperbarui: <span className="text-foreground font-medium">{fmtJakarta(now)}</span>
+              </p>
             </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[1fr_360px] lg:items-stretch">
-            <Card className="border-border/80 bg-card/95">
-              <CardHeader className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base">Ringkasan</CardTitle>
-                  <Badge
-                    variant="outline"
-                    className="font-mono text-[0.65rem] tracking-[0.16em] uppercase"
-                  >
-                    {hasVotes ? "Suara Masuk" : "Belum Ada Suara"}
-                  </Badge>
-                </div>
-                <CardDescription className="text-sm">
-                  Total suara yang tercatat dan kandidat teratas saat ini.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="grid gap-4 sm:grid-cols-3">
-                <div className="bg-muted/10 rounded-xl border p-4">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
-                    total suara
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold">{fmtNumber(totalVotes)}</p>
-                </div>
-
-                <div className="bg-muted/10 rounded-xl border p-4">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
-                    jumlah paslon
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold">{fmtNumber(ranked.length)}</p>
-                </div>
-
-                <div className="bg-muted/10 rounded-xl border p-4">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
-                    {leaderLabel}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-sm font-semibold">{leaderName ?? "-"}</p>
-                  {!isTie && hasVotes ? (
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Margin:{" "}
-                      <span className="text-foreground font-medium">{fmtNumber(margin)}</span> suara
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground mt-1 text-xs">—</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/80 bg-card/95">
-              <CardHeader className="space-y-2">
-                <CardTitle className="text-base">Catatan</CardTitle>
-                <CardDescription className="text-sm">
-                  Hasil bisa berubah selama proses rekap masih berjalan.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="bg-muted/10 text-muted-foreground rounded-lg border p-3 text-sm">
-                  Jika hasil belum tampil, kemungkinan panitia belum membuka publikasi.
-                </div>
-                <div className="bg-muted/10 text-muted-foreground rounded-lg border p-3 text-sm">
-                  Persentase dihitung otomatis dari total suara yang sudah masuk.
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </section>
 
-        <Separator className="my-8" />
+        <Separator className="my-6 md:my-8" />
 
         {ranked.length === 0 ? (
-          <Card className="bg-muted/40 border-dashed">
+          <Card className="bg-muted/30 border-dashed">
             <CardContent className="text-muted-foreground py-10 text-center text-sm">
-              Belum ada kandidat yang terdaftar, sehingga hasil tidak dapat ditampilkan.
+              Belum ada paslon terdaftar, sehingga hasil tidak dapat ditampilkan.
             </CardContent>
           </Card>
         ) : (
           <section className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight md:text-xl">Perolehan suara</h2>
-              {hasVotes ? (
-                <Badge
-                  variant="outline"
-                  className="font-mono text-[11px] tracking-[0.16em] uppercase"
-                >
-                  {isTie ? "seri" : "live"}
-                </Badge>
-              ) : (
-                <Badge
-                  variant="secondary"
-                  className="font-mono text-[11px] tracking-[0.16em] uppercase"
-                >
-                  kosong
-                </Badge>
-              )}
-            </div>
+            <Card className="border-border/80 bg-card/95 shadow-sm">
+              <CardHeader className="space-y-3">
+                <div className="space-y-1">
+                  <CardTitle className="text-base">Perolehan suara</CardTitle>
+                  <CardDescription className="text-sm">
+                    Grafik batang vertikal untuk semua paslon.
+                  </CardDescription>
+                </div>
+              </CardHeader>
 
-            <div className="space-y-3">
-              {ranked.map((c, idx) => {
-                const percent = totalVotes > 0 ? (c.votes / totalVotes) * 100 : 0;
-                const isTop = hasVotes && c.votes === maxVotes && c.votes > 0;
+              <CardContent className="space-y-2">
+                <VotesBarChart
+                  data={chartData}
+                  maxVotes={maxVotes}
+                  emptyLabel="Belum ada suara masuk. Grafik akan terisi setelah rekap berjalan."
+                />
 
-                return (
-                  <Card
-                    key={c.id}
-                    className={cn(
-                      "border-border/80 bg-card/95 overflow-hidden",
-                      isTop && "border-primary ring-primary/30 ring-1"
-                    )}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold",
-                              isTop
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {c.number}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="text-muted-foreground font-mono text-[11px] tracking-[0.18em] uppercase">
-                              peringkat #{idx + 1}
-                            </p>
-                            <CardTitle className="truncate text-lg md:text-xl">
-                              {c.shortName || `Paslon ${c.number}`}
-                            </CardTitle>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {isTop ? (
-                            <Badge className="flex items-center gap-1 text-[11px]">
-                              <Trophy className="h-3 w-3" />
-                              {leaderLabel}
-                            </Badge>
-                          ) : null}
-
-                          <div className="text-right">
-                            <p className="text-sm font-semibold">{fmtNumber(c.votes)} suara</p>
-                            <p className="text-muted-foreground text-xs">{percent.toFixed(1)}%</p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0 pb-4">
-                      <Progress value={percent} className="h-2.5" />
-                    </CardContent>
-
-                    <CardFooter className="bg-muted/10 border-t">
-                      <p className="text-muted-foreground text-xs">
-                        No. {String(c.number).padStart(2, "0")} -{" "}
-                        {hasVotes ? "Suara masuk" : "Belum ada suara masuk"}
-                      </p>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-            </div>
+                <div className="text-muted-foreground flex justify-end text-xs">
+                  Total suara masuk:
+                  <span className="text-foreground ml-1 font-medium">{fmtNumber(totalVotes)}</span>
+                </div>
+              </CardContent>
+            </Card>
           </section>
         )}
       </div>

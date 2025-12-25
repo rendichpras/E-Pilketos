@@ -21,8 +21,8 @@ import { API_BASE_URL } from "@/lib/config";
 import type { PublicActiveElectionResponse } from "@/lib/types";
 
 const navLinks = [
-  { href: "/candidates", label: "Kandidat" },
-  { href: "/results", label: "Hasil Hitung" },
+  { href: "/#kandidat", label: "Kandidat" },
+  { href: "/hasil", label: "Hasil" },
   { href: "/vote", label: "Mulai Memilih" }
 ];
 
@@ -67,7 +67,7 @@ export function Navbar() {
 
   return (
     <header className="border-border bg-background/90 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-50 w-full border-b backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 md:h-16 md:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:h-16 md:px-6">
         <Link
           href="/"
           className="flex items-center gap-3 rounded-md px-1 py-1 transition-opacity hover:opacity-90"
@@ -83,7 +83,7 @@ export function Navbar() {
           <div className="hidden flex-col leading-tight sm:flex">
             <span className="text-foreground text-sm font-semibold tracking-tight">E-Pilketos</span>
             <span className="text-muted-foreground font-mono text-[10px] tracking-[0.16em] uppercase">
-              voting system
+              sistem pemilihan
             </span>
           </div>
         </Link>
@@ -91,8 +91,9 @@ export function Navbar() {
         <nav className="hidden items-center gap-4 md:flex">
           <div className="flex items-center gap-1">
             {navLinks.map((item) => {
-              const active = pathname.startsWith(item.href);
               const isVote = item.href === "/vote";
+              const isAnchor = item.href.includes("#");
+              const active = isAnchor ? pathname === "/" : pathname.startsWith(item.href);
 
               if (isVote) return null;
 
@@ -154,7 +155,7 @@ export function Navbar() {
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold">E-Pilketos</span>
                     <span className="text-muted-foreground text-[11px]">
-                      Secure & Transparent Voting
+                      Satu siswa, satu suara.
                     </span>
                   </div>
                 </SheetTitle>
@@ -163,7 +164,8 @@ export function Navbar() {
               <div className="flex flex-1 flex-col justify-between py-6">
                 <nav className="flex flex-col gap-1 px-4">
                   {navLinks.map((item) => {
-                    const active = pathname.startsWith(item.href);
+                    const isAnchor = item.href.includes("#");
+                    const active = isAnchor ? pathname === "/" : pathname.startsWith(item.href);
 
                     if (item.href === "/vote" && !voteEnabled) {
                       return (

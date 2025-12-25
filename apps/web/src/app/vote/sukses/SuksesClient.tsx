@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 
 import { VoteShell } from "@/components/vote/vote-shell";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +16,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 
-import { CheckCircle2, Lock, AlertTriangle, Timer } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Timer } from "lucide-react";
 
 type Copy = {
   tone: "success" | "warning" | "info";
@@ -81,7 +80,7 @@ export default function SuksesClient() {
           <CardContent className="space-y-3">
             <div className="bg-muted/10 rounded-xl border p-4">
               <p className="text-muted-foreground text-sm">
-                Hasil belum dibuka oleh panitia. Silakan cek kembali nanti.
+                Anda bisa membuka halaman hasil jika sudah dipublikasikan oleh panitia.
               </p>
             </div>
           </CardContent>
@@ -91,8 +90,8 @@ export default function SuksesClient() {
               <Link href={copy.primaryCta.href}>{copy.primaryCta.label}</Link>
             </Button>
 
-            <Button variant="outline" className="w-full" disabled>
-              Hasil Belum Dipublikasikan
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/hasil">Lihat Hasil</Link>
             </Button>
           </CardFooter>
         </Card>

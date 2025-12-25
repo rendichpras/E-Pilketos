@@ -327,7 +327,47 @@ export default function KonfirmasiClient() {
     );
   }
 
-  if (!state.candidate) return null;
+  if (!state.candidate) {
+    if (!state.error) return null;
+
+    return (
+      <VoteShell className="flex items-center">
+        <div className="mx-auto w-full max-w-md">
+          <Card className="border-destructive/40 bg-card/95 shadow-sm">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-base">Tidak bisa memuat konfirmasi</CardTitle>
+              <CardDescription className="text-sm">
+                Pastikan koneksi internet stabil, lalu coba lagi.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-3">
+              <Alert variant="destructive" className="text-xs">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{state.error}</AlertDescription>
+              </Alert>
+            </CardContent>
+
+            <CardFooter className="bg-muted/10 flex flex-col gap-2 border-t">
+              <Button variant="outline" className="w-full" onClick={() => window.location.reload()}>
+                Coba Lagi
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => router.replace("/vote/surat-suara")}
+              >
+                Kembali ke Surat Suara
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => router.replace("/vote")}>
+                Kembali ke Halaman Token
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </VoteShell>
+    );
+  }
 
   const anyC = state.candidate as any;
   const title = anyC.shortName ?? `Paslon ${anyC.number}`;
@@ -337,10 +377,6 @@ export default function KonfirmasiClient() {
     <VoteShell>
       <div className="space-y-7 pb-[calc(env(safe-area-inset-bottom)+7.5rem)]">
         <section className="space-y-3">
-          <p className="text-muted-foreground font-mono text-[11px] tracking-[0.22em] uppercase">
-            KONFIRMASI
-          </p>
-
           <div className="space-y-2">
             <h1 className="text-2xl font-semibold tracking-tight md:text-4xl">
               Konfirmasi pilihan Anda.

@@ -423,8 +423,8 @@ export default function VoteSuratSuaraClient() {
 
   if (state.error) {
     return (
-      <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
-        <div className="container mx-auto max-w-md px-4">
+      <VoteShell className="flex items-center">
+        <div className="mx-auto w-full max-w-md">
           <Card className="border-destructive/40 bg-card/95 w-full">
             <CardContent className="space-y-4 py-6 text-center">
               <Alert variant="destructive" className="text-sm">
@@ -453,7 +453,7 @@ export default function VoteSuratSuaraClient() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </VoteShell>
     );
   }
 
@@ -462,7 +462,7 @@ export default function VoteSuratSuaraClient() {
       <div className="space-y-7 pb-[calc(env(safe-area-inset-bottom)+6.5rem)]">
         <PageHeader
           title="Pilih pasangan calon yang akan Anda dukung."
-          description="Tap untuk memilih. Suara tidak dapat diubah setelah dikonfirmasi."
+          description="Pilih salah satu. Suara tidak dapat diubah setelah dikonfirmasi."
           electionName={state.election?.name ?? null}
           electionRange={electionRange}
         />

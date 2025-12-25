@@ -68,8 +68,8 @@ function getElectionStatus(election: Election | null, now: Date) {
   if (!election) {
     return {
       status: "NONE" as const,
-      label: "Tidak aktif",
-      description: "Belum ada agenda pemilihan yang sedang berjalan."
+      label: "Belum ada pemilihan",
+      description: "Saat ini belum ada pemilihan yang aktif."
     };
   }
 
@@ -79,23 +79,23 @@ function getElectionStatus(election: Election | null, now: Date) {
   if (now < start) {
     return {
       status: "UPCOMING" as const,
-      label: "Belum dibuka",
-      description: "Pemilihan belum dimulai. Silakan cek kembali sesuai jadwal panitia."
+      label: "Akan dibuka",
+      description: "Pemilihan akan dibuka sesuai jadwal. Anda bisa melihat paslon lebih dulu."
     };
   }
 
   if (now >= start && now <= end) {
     return {
       status: "OPEN" as const,
-      label: "Sedang berlangsung",
-      description: "Bilik suara dibuka. Gunakan token Anda untuk memilih."
+      label: "Dibuka",
+      description: "Bilik suara terbuka. Masukkan token Anda untuk memilih."
     };
   }
 
   return {
     status: "CLOSED" as const,
-    label: "Selesai",
-    description: "Sesi pemilihan sudah berakhir. Panitia dapat melakukan rekapitulasi."
+    label: "Ditutup",
+    description: "Pemilihan telah ditutup. Menunggu publikasi hasil dari panitia."
   };
 }
 
@@ -151,19 +151,19 @@ function StatusCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-border/80 bg-card/95 shadow-sm">
+      <CardHeader className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div className="text-muted-foreground inline-flex items-center gap-2 text-xs">
             <Info className="h-4 w-4" />
-            <span>Status Pemilihan</span>
+            <span>Status hari ini</span>
           </div>
           <Badge variant={badgeVariant} className="text-[11px]">
             {label}
           </Badge>
         </div>
 
-        <CardTitle className="text-lg">{election?.name ?? "Belum ada agenda pemilihan"}</CardTitle>
+        <CardTitle className="text-lg">{election?.name ?? "Belum ada pemilihan aktif"}</CardTitle>
         <CardDescription className="text-sm leading-relaxed">{description}</CardDescription>
       </CardHeader>
 
@@ -172,13 +172,13 @@ function StatusCard({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <div className="text-muted-foreground text-xs">Mulai</div>
+            <div className="text-muted-foreground text-xs">Dibuka</div>
             <div className="bg-muted/40 rounded-md border px-3 py-2 text-xs">
               {startAt ? fmtJakarta(startAt) : "Belum dijadwalkan"}
             </div>
           </div>
           <div className="space-y-1">
-            <div className="text-muted-foreground text-xs">Selesai</div>
+            <div className="text-muted-foreground text-xs">Ditutup</div>
             <div className="bg-muted/40 rounded-md border px-3 py-2 text-xs">
               {endAt ? fmtJakarta(endAt) : "Belum dijadwalkan"}
             </div>
@@ -188,7 +188,7 @@ function StatusCard({
         {status === "OPEN" ? (
           <div className="space-y-2">
             <div className="text-muted-foreground flex items-center justify-between text-xs">
-              <span>Progres sesi</span>
+              <span>Berjalan</span>
               <span>{progress.toFixed(0)}%</span>
             </div>
             <Progress value={progress} className="h-1.5" />
@@ -199,14 +199,14 @@ function StatusCard({
           <div className="flex items-start gap-2">
             <Clock className="mt-0.5 h-4 w-4" />
             <p className="leading-relaxed">
-              Token hanya bisa dipakai sekali. Setelah suara dikirim, sesi otomatis selesai.
+              Token bersifat sekali pakai. Setelah suara dikirim, sesi Anda otomatis berakhir.
             </p>
           </div>
         </div>
       </CardContent>
 
-      <CardFooter className="text-muted-foreground flex items-center justify-between text-xs">
-        <span>Waktu</span>
+      <CardFooter className="text-muted-foreground flex items-center justify-between border-t text-xs">
+        <span>Diperbarui</span>
         <span>{fmtJakarta(now)}</span>
       </CardFooter>
     </Card>
@@ -235,18 +235,16 @@ function CandidateDetailDrawer({
       </DrawerTrigger>
 
       <DrawerContent className="h-[92vh] p-0">
-        <div className="mx-auto flex h-full w-full max-w-2xl flex-col overflow-hidden">
+        <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden">
           <DrawerHeader className="text-left">
             <DrawerTitle className="text-base md:text-lg">
               Paslon {candidate.number} — {title}
             </DrawerTitle>
-            <div className="text-muted-foreground text-sm">
-              {electionName ?? "Detail pasangan calon"}
-            </div>
+            <div className="text-muted-foreground text-sm">{electionName ?? "Profil paslon"}</div>
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+            <div className="grid gap-4 md:grid-cols-[200px_1fr]">
               <AspectRatio ratio={3 / 4} className="bg-muted/40 overflow-hidden rounded-lg border">
                 {candidate.photoUrl ? (
                   <img
@@ -254,10 +252,11 @@ function CandidateDetailDrawer({
                     alt={`Foto ${title}`}
                     className="h-full w-full object-cover object-top"
                     loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
-                    Tidak ada foto
+                    Foto belum tersedia
                   </div>
                 )}
               </AspectRatio>
@@ -354,7 +353,9 @@ function CandidateCard({
   const title = candidate.shortName || `Paslon ${candidate.number}`;
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden">
+    <Card
+      className={`$"border-border/80 bg-card/95 shadow-sm" flex h-full flex-col overflow-hidden`}
+    >
       <CardContent className="p-0">
         <AspectRatio ratio={3 / 4} className="bg-muted/40">
           {candidate.photoUrl ? (
@@ -363,6 +364,7 @@ function CandidateCard({
               alt={`Foto ${title}`}
               className="h-full w-full object-cover object-top"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
@@ -393,11 +395,11 @@ function CandidateCard({
 
       <CardContent className="flex-1 pt-0">
         <p className="text-muted-foreground min-h-[40px] text-sm">
-          Tekan Detail untuk melihat visi, misi, dan program.
+          Lihat visi, misi, dan program lewat tombol Detail.
         </p>
       </CardContent>
 
-      <CardFooter className="bg-muted/20 mt-auto w-full justify-end gap-2 border-t px-6 py-3">
+      <CardFooter className="mt-auto w-full justify-end gap-2 border-t">
         <CandidateDetailDrawer
           electionName={electionName}
           candidate={candidate}
@@ -445,14 +447,13 @@ function CandidatesSection({
           <div className="space-y-2">
             <div className="bg-background/60 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
               <ListOrdered className="h-3.5 w-3.5" />
-              <span>Pasangan Calon</span>
+              <span>Paslon</span>
             </div>
             <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              {electionName ?? "Daftar Kandidat"}
+              {electionName ?? "Daftar Paslon"}
             </h2>
             <p className="text-muted-foreground max-w-2xl text-sm">
-              Lihat profil singkat setiap paslon. Jika sudah yakin, masuk ke bilik suara untuk
-              memilih.
+              Kenali kandidat lebih dulu. Saat bilik suara dibuka, Anda bisa memilih dengan token.
             </p>
           </div>
         </div>
@@ -460,7 +461,7 @@ function CandidatesSection({
         {!hasCandidates ? (
           <Card className="bg-muted/30 border-dashed">
             <CardContent className="text-muted-foreground py-10 text-center text-sm">
-              Kandidat belum tersedia untuk pemilihan ini.
+              Paslon belum dipublikasikan untuk pemilihan ini.
             </CardContent>
           </Card>
         ) : (
@@ -486,17 +487,17 @@ function HowToVoteSection() {
     {
       icon: <Ticket className="h-4 w-4" />,
       title: "Masukkan token",
-      desc: "Token unik dari panitia. Satu token hanya bisa dipakai sekali."
+      desc: "Gunakan token dari panitia. Token hanya bisa dipakai satu kali."
     },
     {
       icon: <Users className="h-4 w-4" />,
       title: "Pilih paslon",
-      desc: "Baca detail kandidat, lalu tentukan pilihan Anda."
+      desc: "Buka detail, bandingkan visi–misi, lalu tentukan pilihan."
     },
     {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      title: "Konfirmasi & selesai",
-      desc: "Kirim suara. Setelah terkirim, sesi otomatis berakhir."
+      title: "Konfirmasi & kirim",
+      desc: "Pastikan pilihan benar, lalu kirim suara untuk menyelesaikan proses."
     }
   ];
 
@@ -504,23 +505,23 @@ function HowToVoteSection() {
     <section id="cara-memilih" className="bg-muted/30 border-t">
       <div className="container mx-auto max-w-6xl px-4 py-12 md:px-6 lg:py-16">
         <div className="mb-8 space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+          <div className="bg-background/60 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
             <CalendarDays className="h-3.5 w-3.5" />
-            <span>Cara Memilih</span>
+            <span>Cara memilih</span>
           </div>
           <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Tiga langkah, selesai.
+            Selesai dalam tiga langkah.
           </h2>
           <p className="text-muted-foreground max-w-2xl text-sm">
-            Alur dibuat sederhana agar pemilihan cepat dan tertib.
+            Alurnya singkat, supaya pemilihan tetap cepat dan tertib.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
           {steps.map((s) => (
-            <Card key={s.title}>
+            <Card key={s.title} className="border-border/80 bg-card/95 shadow-sm">
               <CardHeader>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border">
+                <div className="bg-background/60 flex h-9 w-9 items-center justify-center rounded-full border">
                   {s.icon}
                 </div>
                 <CardTitle className="text-base">{s.title}</CardTitle>
@@ -534,7 +535,7 @@ function HowToVoteSection() {
           <div className="flex items-start gap-2">
             <ShieldCheck className="mt-0.5 h-4 w-4" />
             <p className="leading-relaxed">
-              Jika token bermasalah (invalid/used), hubungi panitia untuk verifikasi.
+              Jika token tidak valid atau sudah dipakai, hubungi panitia untuk pengecekan.
             </p>
           </div>
         </div>
@@ -548,31 +549,33 @@ function FaqSection() {
     <section id="faq" className="border-t">
       <div className="container mx-auto max-w-6xl px-4 py-12 md:px-6 lg:py-16">
         <div className="mb-8 space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+          <div className="bg-background/60 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
             <Info className="h-3.5 w-3.5" />
             <span>FAQ</span>
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Pertanyaan yang sering muncul.
-          </h2>
+          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Bantuan cepat.</h2>
           <p className="text-muted-foreground max-w-2xl text-sm">
-            Jawaban singkat untuk mengurangi kebingungan saat hari-H.
+            Beberapa jawaban singkat untuk kasus yang paling sering terjadi.
           </p>
         </div>
 
-        <Card>
+        <Card className="border-border/80 bg-card/95 shadow-sm">
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="token-invalid">
-                <AccordionTrigger>Token saya tidak valid. Harus bagaimana?</AccordionTrigger>
+                <AccordionTrigger>
+                  Token saya tidak valid. Apa yang harus saya lakukan?
+                </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground text-sm">
-                  Periksa penulisan token. Jika tetap gagal, hubungi panitia untuk verifikasi token
-                  dan daftar hadir.
+                  Periksa penulisan token (tanpa spasi). Jika masih gagal, hubungi panitia untuk
+                  verifikasi.
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="token-used">
-                <AccordionTrigger>Token saya sudah digunakan.</AccordionTrigger>
+                <AccordionTrigger>
+                  Token saya sudah digunakan. Bagaimana solusinya?
+                </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground text-sm">
                   Token hanya bisa dipakai sekali. Hubungi panitia agar dilakukan pengecekan dan
                   tindak lanjut sesuai prosedur.
@@ -580,17 +583,17 @@ function FaqSection() {
               </AccordionItem>
 
               <AccordionItem value="session-expired">
-                <AccordionTrigger>Sesi habis saat memilih.</AccordionTrigger>
+                <AccordionTrigger>Sesi habis saat memilih. Kenapa bisa begitu?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground text-sm">
-                  Kembali ke halaman token dan login ulang. Pastikan koneksi stabil saat proses
+                  Silakan masuk ulang dari halaman token. Pastikan koneksi stabil saat proses
                   pemilihan.
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="results">
-                <AccordionTrigger>Kenapa hasil belum terlihat?</AccordionTrigger>
+                <AccordionTrigger>Kenapa hasil belum muncul?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground text-sm">
-                  Hasil hanya muncul jika panitia sudah mempublikasikannya setelah sesi pemilihan
+                  Hasil akan tampil setelah panitia mempublikasikan rekap setelah sesi pemilihan
                   ditutup.
                 </AccordionContent>
               </AccordionItem>
@@ -606,14 +609,14 @@ function StickyVoteCta({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur md:hidden">
+    <div className="bg-background/90 supports-[backdrop-filter]:bg-background/70 fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <div className="text-muted-foreground inline-flex items-center gap-2 text-xs">
           <LockKeyholeOpen className="h-4 w-4" />
-          <span>Bilik suara dibuka</span>
+          <span>Bilik suara terbuka</span>
         </div>
         <Button asChild>
-          <Link href="/vote">Mulai</Link>
+          <Link href="/vote">Masuk</Link>
         </Button>
       </div>
     </div>
@@ -638,10 +641,10 @@ export default async function HomePage() {
     statusInfo.status === "UPCOMING"
       ? "Belum dibuka"
       : statusInfo.status === "CLOSED"
-        ? "Sudah selesai"
+        ? "Sudah ditutup"
         : statusInfo.status === "NONE"
-          ? "Tidak aktif"
-          : "Mulai memilih";
+          ? "Belum ada pemilihan"
+          : "Masuk bilik suara";
 
   const candidates = candidatesData?.candidates ?? [];
   const electionName = candidatesData?.election?.name ?? activeElection?.name ?? null;
@@ -674,17 +677,18 @@ export default async function HomePage() {
 
               <div className="space-y-3">
                 <h1 className="text-4xl leading-[1.05] font-semibold tracking-tight md:text-5xl lg:text-6xl">
-                  Pemilihan Ketua OSIS
+                  Pemilihan Ketua & Wakil OSIS
                 </h1>
                 <p className="text-muted-foreground max-w-2xl text-base md:text-lg">
-                  Masukkan token untuk memilih. Satu token hanya sekali pakai.
+                  Siapkan token dari panitia untuk masuk ke bilik suara. Token hanya bisa dipakai
+                  satu kali.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 {voteEnabled ? (
                   <Button asChild size="lg">
-                    <Link href="/vote">Mulai Memilih</Link>
+                    <Link href="/vote">Masuk Bilik Suara</Link>
                   </Button>
                 ) : (
                   <Button size="lg" variant="secondary" disabled title={voteDisabledLabel}>
@@ -694,48 +698,9 @@ export default async function HomePage() {
                 )}
 
                 <Button asChild size="lg" variant="outline">
-                  <Link href="/#kandidat">Lihat Kandidat</Link>
+                  <Link href="/#kandidat">Lihat Paslon</Link>
                 </Button>
               </div>
-
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-3">
-                    <CardTitle className="text-base">
-                      {electionName ?? "Informasi pemilihan"}
-                    </CardTitle>
-                    <Badge variant="outline" className="text-[11px]">
-                      Jadwal
-                    </Badge>
-                  </div>
-                  <CardDescription className="text-sm">
-                    {voteEnabled
-                      ? "Bilik suara dibuka sampai waktu berakhir."
-                      : statusInfo.status === "UPCOMING"
-                        ? "Pemilihan belum dibuka. Anda tetap bisa melihat kandidat."
-                        : statusInfo.status === "CLOSED"
-                          ? "Pemilihan sudah selesai. Menunggu publikasi hasil dari panitia."
-                          : "Belum ada pemilihan aktif saat ini."}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="pt-0">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="bg-background/60 rounded-lg border p-3">
-                      <div className="text-muted-foreground text-xs">Mulai</div>
-                      <div className="mt-1 text-sm">
-                        {startAt ? fmtJakarta(startAt) : "Belum dijadwalkan"}
-                      </div>
-                    </div>
-                    <div className="bg-background/60 rounded-lg border p-3">
-                      <div className="text-muted-foreground text-xs">Selesai</div>
-                      <div className="mt-1 text-sm">
-                        {endAt ? fmtJakarta(endAt) : "Belum dijadwalkan"}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             <StatusCard

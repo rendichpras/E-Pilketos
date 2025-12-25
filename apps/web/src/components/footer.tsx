@@ -3,8 +3,8 @@ import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 
 const footerLinks = [
-  { href: "/candidates", label: "Kandidat" },
-  { href: "/results", label: "Hasil Hitung" },
+  { href: "/#kandidat", label: "Kandidat" },
+  { href: "/hasil", label: "Hasil" },
   { href: "/vote", label: "Mulai Memilih" }
 ];
 
@@ -13,7 +13,7 @@ export function Footer() {
 
   return (
     <footer className="border-border bg-background/95 border-t">
-      <div className="mx-auto max-w-5xl px-4 py-6 md:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-2 text-center md:items-start md:text-left">
             <div className="text-foreground flex items-center justify-center gap-2 text-sm font-semibold md:justify-start">
