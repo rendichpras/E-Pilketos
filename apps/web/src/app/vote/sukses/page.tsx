@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import SuksesClient from "./SuksesClient";
 
+export const dynamic = "force-dynamic";
+
 export default function VoteSuksesPage() {
   return (
     <Suspense

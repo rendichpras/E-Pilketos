@@ -1,17 +1,19 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({
+export const fontSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-inter"
+  variable: "--font-sans",
+  weight: ["400", "500", "600", "700"]
 });
 
-const jetbrainsMono = JetBrains_Mono({
+export const fontMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono"
+  variable: "--font-mono",
+  weight: ["400", "500", "600"]
 });
 
 export const metadata: Metadata = {
@@ -23,7 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="id"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${fontSans.variable} ${fontMono.variable}`}
       suppressHydrationWarning
     >
       <body>

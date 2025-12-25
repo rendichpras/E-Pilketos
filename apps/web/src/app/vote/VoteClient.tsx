@@ -1,132 +1,314 @@
-"use client";
+import Link from "next/link";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
-import { VoteStepper } from "@/components/vote/vote-stepper";
-import { VoteReasonAlert } from "@/components/vote/vote-reason-alert";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Lock, AlertCircle } from "lucide-react";
+import { API_BASE_URL } from "@/lib/config";
+import type { Election, PublicResultsResponse } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
-function normalizeToken(raw: string) {
-  const cleaned = raw
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .toUpperCase()
-    .slice(0, 8);
-  const formatted = cleaned.length > 4 ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}` : cleaned;
-  return { cleaned, formatted };
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+
+import { AlertCircle, BarChart3, CalendarX2, LockKeyhole, Trophy } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+
+type FetchResult =
+  | {
+    status: number;
+    data: PublicResultsResponse | null;
+    error?: string | null;
+  }
+  | null;
+
+async function getResults(): Promise<FetchResult> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/public/results`, { cache: "no-store" });
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      return { status: res.status, data: null, error: payload?.error ?? null };
+    }
+
+    return { status: 200, data: (await res.json()) as PublicResultsResponse, error: null };
+  } catch {
+    return null;
+  }
 }
 
-export default function VoteClient() {
-  const router = useRouter();
+function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-background text-foreground flex min-h-screen flex-col">
+      <Navbar />
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </div>
+  );
+}
 
-  const [token, setToken] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function StateCard({
+  icon,
+  title,
+  description,
+  action
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action?: { label: string; href: string };
+}) {
+  return (
+    <div className="container mx-auto flex max-w-6xl items-center justify-center px-4 py-12 md:px-6">
+      <Card className="bg-muted/40 w-full max-w-md border-dashed">
+        <CardContent className="flex flex-col items-center gap-4 py-8 text-center text-sm">
+          <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full">
+            {icon}
+          </div>
+          <div className="space-y-1">
+            <p className="font-medium">{title}</p>
+            <p className="text-muted-foreground text-xs">{description}</p>
+          </div>
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
+          {action ? (
+            <Button asChild variant="outline" size="sm" className="mt-2 font-mono text-[11px] tracking-[0.16em] uppercase">
+              <Link href={action.href}>{action.label}</Link>
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-    const { cleaned, formatted } = normalizeToken(token);
+function fmtNumber(n: number) {
+  return n.toLocaleString("id-ID");
+}
 
-    if (!cleaned) {
-      setError("Token wajib diisi.");
-      return;
-    }
-    if (cleaned.length !== 8) {
-      setError("Token belum lengkap. Format: XXXX-YYYY");
-      return;
-    }
+function buildRankedCandidates(data: PublicResultsResponse) {
+  const totalVotes = Number(data.totalVotes ?? 0);
 
-    setSubmitting(true);
-    try {
-      await apiClient.post("/auth/token-login", { token: formatted });
-      router.replace("/vote/surat-suara");
-    } catch (err: any) {
-      setError(err?.data?.error ?? "Gagal memverifikasi token.");
-    } finally {
-      setSubmitting(false);
-    }
+  const list = (data.results ?? []).map((r) => ({
+    id: r.candidate.id,
+    number: Number(r.candidate.number ?? 0),
+    shortName: r.candidate.shortName ?? null,
+    votes: Number(r.voteCount ?? 0)
+  }));
+
+  list.sort((a, b) => b.votes - a.votes || a.number - b.number);
+
+  const maxVotes = list.length ? Math.max(...list.map((x) => x.votes)) : 0;
+  const topCount = maxVotes > 0 ? list.filter((x) => x.votes === maxVotes).length : 0;
+
+  return { totalVotes, list, maxVotes, topCount };
+}
+
+export default async function HasilPage() {
+  const result = await getResults();
+
+  if (!result) {
+    return (
+      <PageShell>
+        <StateCard
+          icon={<AlertCircle className="h-6 w-6" />}
+          title="Tidak dapat terhubung ke server."
+          description="Periksa koneksi Anda dan coba beberapa saat lagi."
+          action={{ label: "Kembali", href: "/" }}
+        />
+      </PageShell>
+    );
   }
 
+  if (result.status === 403) {
+    return (
+      <PageShell>
+        <StateCard
+          icon={<LockKeyhole className="h-6 w-6" />}
+          title="Hasil belum dipublikasikan."
+          description={result.error ?? "Panitia belum membuka akses rekapitulasi hasil."}
+          action={{ label: "Kembali", href: "/" }}
+        />
+      </PageShell>
+    );
+  }
+
+  if (result.status === 200 && result.data && !result.data.election) {
+    return (
+      <PageShell>
+        <StateCard
+          icon={<CalendarX2 className="h-6 w-6" />}
+          title="Belum ada hasil pemilihan yang tersedia."
+          description="Tidak ada pemilihan yang hasilnya sudah dipublikasikan saat ini."
+          action={{ label: "Kembali", href: "/" }}
+        />
+      </PageShell>
+    );
+  }
+
+  if (!result.data || !result.data.election) {
+    return (
+      <PageShell>
+        <StateCard
+          icon={<AlertCircle className="h-6 w-6" />}
+          title="Data hasil pemilihan belum dapat ditampilkan."
+          description={
+            result.error
+              ? result.error
+              : "Coba beberapa saat lagi atau hubungi panitia jika masalah terus berlanjut."
+          }
+          action={{ label: "Kembali", href: "/" }}
+        />
+      </PageShell>
+    );
+  }
+
+  const election: Election = result.data.election;
+  const { totalVotes, list, maxVotes, topCount } = buildRankedCandidates(result.data);
+
+  const hasVotes = totalVotes > 0;
+  const leadingLabel =
+    !hasVotes ? "Belum ada suara" : topCount > 1 ? "Teratas (seri)" : "Unggul";
+
   return (
-    <div className="bg-background text-foreground min-h-screen">
-      <div className="container mx-auto flex min-h-screen flex-col items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md space-y-5">
-          <VoteStepper step={1} />
+    <PageShell>
+      <div className="container mx-auto max-w-6xl px-4 py-10 md:px-6 lg:py-14">
+        <section className="space-y-6">
+          <div className="text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span className="font-mono tracking-[0.18em] uppercase">hasil pemilihan</span>
+          </div>
 
-          <Card className="border-border/80 bg-card/95 shadow-sm">
-            <CardHeader className="space-y-3 text-center">
-              <div className="bg-primary/10 text-primary mx-auto flex h-10 w-10 items-center justify-center rounded-full">
-                <Lock className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <CardTitle className="text-lg font-semibold">Masukkan Token</CardTitle>
-              </div>
-            </CardHeader>
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{election.name}</h1>
+              <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
+                Rekapitulasi perolehan suara untuk setiap pasangan calon. Persentase dihitung dari total suara yang sudah masuk.
+              </p>
+            </div>
 
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                <VoteReasonAlert />
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="token"
-                    className="text-muted-foreground font-mono text-[11px] tracking-[0.18em] uppercase"
-                  >
-                    token
-                  </label>
-
-                  <Input
-                    id="token"
-                    value={token}
-                    onChange={(e) => setToken(normalizeToken(e.target.value).formatted)}
-                    placeholder="XXXX-YYYY"
-                    maxLength={9}
-                    className={cn(
-                      "h-11 text-center font-mono text-lg tracking-[0.35em] uppercase",
-                      error && "border-destructive focus-visible:ring-destructive/40"
-                    )}
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                    autoCorrect="off"
-                    inputMode="text"
-                    autoFocus
-                    disabled={submitting}
-                  />
+            <Card className="border-border/80 bg-card/95">
+              <CardHeader className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-mono tracking-[0.18em] uppercase">
+                    status penghitungan
+                  </span>
+                  <Badge variant="outline" className="font-mono text-[0.65rem] tracking-[0.16em] uppercase">
+                    {hasVotes ? "Suara Masuk" : "Belum Ada Suara"}
+                  </Badge>
                 </div>
+                <CardTitle className="text-lg">{fmtNumber(totalVotes)} Suara</CardTitle>
+                <CardDescription className="text-xs">
+                  Total suara yang sudah tercatat di sistem hingga saat ini.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </section>
 
-                {error ? (
-                  <Alert variant="destructive" className="text-xs">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                ) : null}
+        <Separator className="my-8" />
 
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full font-mono text-xs tracking-[0.18em] uppercase"
-                  disabled={submitting}
-                >
-                  {submitting ? "Memverifikasi..." : "Masuk"}
-                </Button>
-
-                <p className="text-muted-foreground text-center text-[11px] leading-relaxed">
-                  Token hanya dapat digunakan satu kali.
-                </p>
-              </CardContent>
-            </form>
+        {list.length === 0 ? (
+          <Card className="bg-muted/40 border-dashed">
+            <CardContent className="text-muted-foreground py-10 text-center text-sm">
+              Belum ada kandidat yang terdaftar untuk pemilihan ini, sehingga hasil tidak dapat ditampilkan.
+            </CardContent>
           </Card>
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+            <section className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                {list.map((c, idx) => {
+                  const percent = totalVotes > 0 ? (c.votes / totalVotes) * 100 : 0;
+                  const isTop = hasVotes && c.votes === maxVotes && c.votes > 0;
 
-          <div className="pb-[calc(env(safe-area-inset-bottom)+0.75rem)]" />
-        </div>
+                  return (
+                    <Card
+                      key={c.id}
+                      className={cn(
+                        "border-border/80 bg-card/95 flex flex-col",
+                        isTop && "border-primary ring-primary/40 dark:border-primary/80 ring-1"
+                      )}
+                    >
+                      <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={cn(
+                              "flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold md:h-12 md:w-12",
+                              isTop ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {c.number}
+                          </div>
+
+                          <div className="space-y-1">
+                            <CardDescription className="font-mono text-[11px] tracking-[0.18em] uppercase">
+                              peringkat #{idx + 1}
+                            </CardDescription>
+                            <CardTitle className="text-lg md:text-xl">
+                              {c.shortName || `Paslon ${c.number}`}
+                            </CardTitle>
+                          </div>
+                        </div>
+
+                        {isTop ? (
+                          <Badge className="flex items-center gap-1 text-[11px]">
+                            <Trophy className="h-3 w-3" />
+                            {leadingLabel}
+                          </Badge>
+                        ) : null}
+                      </CardHeader>
+
+                      <CardContent className="space-y-4 pt-2 pb-6">
+                        <div className="flex items-end justify-between">
+                          <div className="space-y-1">
+                            <div className="text-3xl font-semibold">
+                              {percent.toFixed(1)}
+                              <span className="text-muted-foreground text-lg">%</span>
+                            </div>
+                            <p className="text-muted-foreground text-xs">
+                              Dari total {fmtNumber(totalVotes)} suara masuk.
+                            </p>
+                          </div>
+
+                          <div className="text-muted-foreground text-right text-xs">
+                            <p className="font-medium">{fmtNumber(c.votes)} suara</p>
+                            <p>No. {c.number.toString().padStart(2, "0")}</p>
+                          </div>
+                        </div>
+
+                        <Progress value={percent} className="h-2.5" />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+
+            <aside className="space-y-4 lg:sticky lg:top-24">
+              <Card className="border-border/80 bg-card/95">
+                <CardHeader className="space-y-2">
+                  <CardTitle className="text-base">Catatan</CardTitle>
+                  <CardDescription className="text-sm">
+                    Jika hasil masih berubah, panitia mungkin sedang menyelesaikan proses rekapitulasi.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="rounded-lg border bg-muted/10 p-3 text-sm text-muted-foreground">
+                    Persentase dihitung secara otomatis berdasarkan total suara yang sudah tercatat.
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Button asChild variant="outline" className="w-full font-mono text-[11px] tracking-[0.16em] uppercase">
+                <Link href="/">Kembali ke Beranda</Link>
+              </Button>
+            </aside>
+          </div>
+        )}
       </div>
-    </div>
+    </PageShell>
   );
 }

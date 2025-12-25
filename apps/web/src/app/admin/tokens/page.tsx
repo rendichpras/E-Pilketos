@@ -735,9 +735,9 @@ export default function AdminTokensPage() {
 
                                 <div className="text-muted-foreground text-[10px]">
                                   Dibuat: {fmtId(t.createdAt)}
-                                  {t.usedAt ? <> • Dipakai: {fmtId(t.usedAt)}</> : null}
+                                  {t.usedAt ? <> - Dipakai: {fmtId(t.usedAt)}</> : null}
                                   {t.invalidatedAt ? (
-                                    <> • Invalid: {fmtId(t.invalidatedAt)}</>
+                                    <> - Invalid: {fmtId(t.invalidatedAt)}</>
                                   ) : null}
                                 </div>
                               </div>
@@ -812,7 +812,7 @@ export default function AdminTokensPage() {
                         <span className="font-medium">{pageNumber}</span>
                         <span>dari</span>
                         <span className="font-medium">{totalPages}</span>
-                        <span className="mx-1">•</span>
+                        <span className="mx-1">-</span>
                         <span>Menampilkan</span>
                         <span className="font-medium">{visibleTokens.length}</span>
                         <span>token</span>

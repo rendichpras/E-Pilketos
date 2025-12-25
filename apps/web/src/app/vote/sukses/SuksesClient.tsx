@@ -1,89 +1,110 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { useSearchParams } from "next/navigation";
+
+import { VoteShell } from "@/components/vote/vote-shell";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Lock } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+
+import { CheckCircle2, Lock, AlertTriangle, Timer } from "lucide-react";
+
+type Copy = {
+  tone: "success" | "warning" | "info";
+  title: string;
+  desc: string;
+  primaryCta: { label: string; href: string };
+};
 
 export default function SuksesClient() {
-  const router = useRouter();
   const sp = useSearchParams();
 
-  const copy = useMemo(() => {
+  const copy = useMemo<Copy>(() => {
     const reason = sp.get("reason");
+
     if (reason === "token_used") {
       return {
+        tone: "warning",
         title: "Token sudah digunakan.",
-        desc: "Jika Anda sudah melakukan pemilihan sebelumnya, suara Anda sudah tercatat. Jika Anda belum memilih, hubungi panitia."
+        desc: "Jika Anda sudah memilih sebelumnya, suara Anda sudah tercatat. Jika belum memilih, hubungi panitia untuk verifikasi.",
+        primaryCta: { label: "Kembali ke Beranda", href: "/" }
       };
     }
+
+    if (reason === "session_expired") {
+      return {
+        tone: "info",
+        title: "Sesi Anda berakhir.",
+        desc: "Silakan masukkan token kembali untuk melanjutkan proses pemilihan.",
+        primaryCta: { label: "Masukkan Token", href: "/vote" }
+      };
+    }
+
     return {
+      tone: "success",
       title: "Suara Anda sudah tercatat.",
-      desc: "Terima kasih. Token yang Anda gunakan telah dinonaktifkan otomatis untuk menjaga integritas pemilihan."
+      desc: "Terima kasih. Token yang Anda gunakan telah dinonaktifkan otomatis untuk menjaga integritas pemilihan.",
+      primaryCta: { label: "Kembali ke Beranda", href: "/" }
     };
   }, [sp]);
 
+  const Icon =
+    copy.tone === "success" ? CheckCircle2 : copy.tone === "warning" ? AlertTriangle : Timer;
+
   return (
-    <div className="bg-background text-foreground min-h-screen">
-      <div className="container mx-auto flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
-          <Card className="border-border/80 bg-card/95 shadow-sm">
-            <CardContent className="space-y-6 py-8 text-center">
-              <div className="bg-muted/40 mx-auto inline-flex items-center rounded-full border px-3 py-1">
-                <span className="font-mono text-[11px] tracking-[0.18em] uppercase">
-                  pemungutan suara selesai
-                </span>
+    <VoteShell className="flex items-center">
+      <div className="mx-auto w-full max-w-md">
+        <Card className="border-border/80 bg-card/95 shadow-sm">
+          <CardHeader className="space-y-3 text-center">
+            <div className="flex justify-center">
+              <div className="bg-primary/10 text-primary flex h-14 w-14 items-center justify-center rounded-full">
+                <Icon className="h-7 w-7" />
               </div>
+            </div>
 
-              <div className="flex justify-center">
-                <div className="bg-primary/10 text-primary flex h-14 w-14 items-center justify-center rounded-full">
-                  <CheckCircle2 className="h-7 w-7" />
-                </div>
-              </div>
+            <div className="space-y-1">
+              <CardTitle className="text-2xl font-semibold tracking-tight">{copy.title}</CardTitle>
+              <CardDescription className="text-sm">{copy.desc}</CardDescription>
+            </div>
+          </CardHeader>
 
-              <div className="space-y-2">
-                <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
-                <p className="text-muted-foreground text-sm">{copy.desc}</p>
-              </div>
+          <CardContent className="space-y-3">
+            <div className="bg-muted/10 rounded-xl border p-4">
+              <p className="text-muted-foreground text-sm">
+                Hasil belum dibuka oleh panitia. Silakan cek kembali nanti.
+              </p>
+            </div>
+          </CardContent>
 
-              <div className="bg-muted/30 rounded-lg border p-4 text-left">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-muted-foreground font-mono text-[11px] tracking-[0.18em] uppercase">
-                    hasil rekap
-                  </p>
-                  <span className="bg-background inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-[11px] tracking-[0.16em] uppercase">
-                    belum publik
-                  </span>
-                </div>
-                <p className="text-muted-foreground mt-2 text-sm">
-                  Hasil belum dibuka oleh panitia. Silakan cek kembali nanti.
-                </p>
-              </div>
+          <CardFooter className="bg-muted/10 flex flex-col gap-2 border-t">
+            <Button
+              asChild
+              size="lg"
+              className="w-full"
+            >
+              <Link href={copy.primaryCta.href}>{copy.primaryCta.label}</Link>
+            </Button>
 
-              <div className="space-y-2 pt-1">
-                <Button
-                  className="w-full font-mono text-xs tracking-[0.18em] uppercase"
-                  onClick={() => router.replace("/vote")}
-                >
-                  Kembali
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full font-mono text-xs tracking-[0.18em] uppercase"
-                  disabled
-                >
-                  <Lock className="mr-2 h-4 w-4" />
-                  Hasil Belum Dipublikasikan
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="pb-[calc(env(safe-area-inset-bottom)+0.5rem)]" />
-        </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled
+            >
+              Hasil Belum Dipublikasikan
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
-    </div>
+    </VoteShell>
   );
 }

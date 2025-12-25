@@ -193,7 +193,7 @@ export default function AdminElectionsPage() {
       try {
         const me = await apiClient.get<AdminUser>("/admin/auth/me");
         if (!cancelled) setAdmin(me);
-      } catch {}
+      } catch { }
     })();
 
     (async () => {
@@ -630,7 +630,7 @@ export default function AdminElectionsPage() {
               {counts.archived > 0 ? (
                 <>
                   {" "}
-                  • Archived: <span className="font-medium">{counts.archived}</span>
+                  - Archived: <span className="font-medium">{counts.archived}</span>
                 </>
               ) : null}
             </div>

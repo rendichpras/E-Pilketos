@@ -729,7 +729,7 @@ export default function AdminCandidatesPage() {
               <span>Menampilkan</span>
               <span className="font-medium">{filtered.length}</span>
               <span>kandidat</span>
-              <span className="mx-1">•</span>
+              <span className="mx-1">-</span>
               <span>Total</span>
               <span className="font-medium">{counts.total}</span>
             </div>
@@ -931,10 +931,10 @@ export default function AdminCandidatesPage() {
           {confirmDelete ? (
             <div className="border-border/60 bg-muted/20 rounded-xl border p-3 text-sm">
               <div className="font-medium">
-                Paslon {confirmDelete.number} • {confirmDelete.shortName}
+                Paslon {confirmDelete.number} - {confirmDelete.shortName}
               </div>
               <div className="text-muted-foreground mt-1 text-xs">
-                Ketua: {confirmDelete.ketuaName} • Wakil: {confirmDelete.wakilName}
+                Ketua: {confirmDelete.ketuaName} - Wakil: {confirmDelete.wakilName}
               </div>
             </div>
           ) : null}

@@ -130,9 +130,9 @@ export default function AdminLoginPage() {
               <div className="text-muted-foreground mt-8 space-y-2 text-xs">
                 <p className="font-mono tracking-[0.16em] uppercase">catatan keamanan</p>
                 <ul className="space-y-1">
-                  <li>• Jangan bagikan kredensial admin.</li>
-                  <li>• Gunakan perangkat yang aman.</li>
-                  <li>• Logout setelah selesai.</li>
+                  <li>- Jangan bagikan kredensial admin.</li>
+                  <li>- Gunakan perangkat yang aman.</li>
+                  <li>- Logout setelah selesai.</li>
                 </ul>
               </div>
             </div>
@@ -247,9 +247,9 @@ export default function AdminLoginPage() {
                   catatan keamanan
                 </p>
                 <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
-                  <li>• Jangan bagikan kredensial admin.</li>
-                  <li>• Gunakan perangkat yang aman.</li>
-                  <li>• Logout setelah selesai.</li>
+                  <li>- Jangan bagikan kredensial admin.</li>
+                  <li>- Gunakan perangkat yang aman.</li>
+                  <li>- Logout setelah selesai.</li>
                 </ul>
               </div>
             </div>

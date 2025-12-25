@@ -419,7 +419,7 @@ export default function AdminResultsPage() {
 
                               <div className="text-muted-foreground text-[11px]">
                                 Ketua:{" "}
-                                <span className="text-foreground font-medium">{c.ketuaName}</span> •
+                                <span className="text-foreground font-medium">{c.ketuaName}</span> -
                                 Wakil:{" "}
                                 <span className="text-foreground font-medium">{c.wakilName}</span>
                               </div>
@@ -459,7 +459,7 @@ export default function AdminResultsPage() {
             <div className="flex flex-wrap items-center gap-1">
               <span>Pemilihan:</span>
               <span className="font-medium">{page.results.election.slug}</span>
-              <span className="mx-1">•</span>
+              <span className="mx-1">-</span>
               <span>Status:</span>
               <span className="font-medium">{page.results.election.status}</span>
             </div>

@@ -1,462 +1,763 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
+
 import { API_BASE_URL } from "@/lib/config";
-import type { PublicActiveElectionResponse } from "@/lib/types";
+import type {
+  CandidatePair,
+  Election,
+  PublicActiveElectionResponse,
+  PublicCandidatesResponse
+} from "@/lib/types";
+
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Button } from "@/components/ui/button";
+
+import { AspectRatio } from "@/components/ui/aspect-ratio";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
   CardContent,
-  CardFooter
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Progress } from "@/components/ui/progress";
 import {
-  BarChart3,
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger
+} from "@/components/ui/drawer";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import {
   CalendarDays,
+  CheckCircle2,
   Clock,
   Info,
-  ListChecks,
+  ListOrdered,
   LockKeyhole,
+  LockKeyholeOpen,
   ShieldCheck,
+  Ticket,
   Users
 } from "lucide-react";
 
-async function getActiveElection() {
+type ElectionStatus = "NONE" | "UPCOMING" | "OPEN" | "CLOSED";
+
+function fmtJakarta(dt: Date) {
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Jakarta"
+  }).format(dt);
+}
+
+function getElectionStatus(election: Election | null, now: Date) {
+  if (!election) {
+    return {
+      status: "NONE" as const,
+      label: "Tidak aktif",
+      description: "Belum ada agenda pemilihan yang sedang berjalan."
+    };
+  }
+
+  const start = new Date(election.startAt);
+  const end = new Date(election.endAt);
+
+  if (now < start) {
+    return {
+      status: "UPCOMING" as const,
+      label: "Belum dibuka",
+      description: "Pemilihan belum dimulai. Silakan cek kembali sesuai jadwal panitia."
+    };
+  }
+
+  if (now >= start && now <= end) {
+    return {
+      status: "OPEN" as const,
+      label: "Sedang berlangsung",
+      description: "Bilik suara dibuka. Gunakan token Anda untuk memilih."
+    };
+  }
+
+  return {
+    status: "CLOSED" as const,
+    label: "Selesai",
+    description: "Sesi pemilihan sudah berakhir. Panitia dapat melakukan rekapitulasi."
+  };
+}
+
+async function fetchActiveElection(): Promise<Election | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/public/elections/active`, {
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_BASE_URL}/public/elections/active`, { cache: "no-store" });
     if (!res.ok) return null;
     const data: PublicActiveElectionResponse = await res.json();
-    return data.activeElection;
+    return data.activeElection ?? null;
   } catch {
     return null;
   }
 }
 
-type FeatureCardProps = {
-  icon: ReactNode;
-  title: string;
-  description: string;
-};
+async function fetchPublicCandidates(): Promise<PublicCandidatesResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/public/candidates`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as PublicCandidatesResponse;
+  } catch {
+    return null;
+  }
+}
 
-function FeatureCard({ icon, title, description }: FeatureCardProps) {
+function StatusCard({
+  election,
+  status,
+  label,
+  description,
+  now
+}: {
+  election: Election | null;
+  status: ElectionStatus;
+  label: string;
+  description: string;
+  now: Date;
+}) {
+  const startAt = election ? new Date(election.startAt) : null;
+  const endAt = election ? new Date(election.endAt) : null;
+
+  const badgeVariant: "default" | "secondary" | "outline" =
+    status === "OPEN"
+      ? "default"
+      : status === "UPCOMING" || status === "CLOSED"
+        ? "secondary"
+        : "outline";
+
+  let progress = 0;
+  if (status === "OPEN" && startAt && endAt) {
+    const total = endAt.getTime() - startAt.getTime();
+    const elapsed = now.getTime() - startAt.getTime();
+    progress = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
+  }
+
   return (
-    <Card className="border-muted/60 bg-background/60">
-      <CardHeader className="space-y-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border">{icon}</div>
-        <CardTitle className="text-base font-semibold">{title}</CardTitle>
-        <CardDescription className="text-sm">{description}</CardDescription>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-muted-foreground inline-flex items-center gap-2 text-xs">
+            <Info className="h-4 w-4" />
+            <span>Status Pemilihan</span>
+          </div>
+          <Badge variant={badgeVariant} className="text-[11px]">
+            {label}
+          </Badge>
+        </div>
+
+        <CardTitle className="text-lg">{election?.name ?? "Belum ada agenda pemilihan"}</CardTitle>
+        <CardDescription className="text-sm leading-relaxed">{description}</CardDescription>
       </CardHeader>
+
+      <CardContent className="space-y-4">
+        <Separator />
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <div className="text-muted-foreground text-xs">Mulai</div>
+            <div className="bg-muted/40 rounded-md border px-3 py-2 text-xs">
+              {startAt ? fmtJakarta(startAt) : "Belum dijadwalkan"}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-muted-foreground text-xs">Selesai</div>
+            <div className="bg-muted/40 rounded-md border px-3 py-2 text-xs">
+              {endAt ? fmtJakarta(endAt) : "Belum dijadwalkan"}
+            </div>
+          </div>
+        </div>
+
+        {status === "OPEN" ? (
+          <div className="space-y-2">
+            <div className="text-muted-foreground flex items-center justify-between text-xs">
+              <span>Progres sesi</span>
+              <span>{progress.toFixed(0)}%</span>
+            </div>
+            <Progress value={progress} className="h-1.5" />
+          </div>
+        ) : null}
+
+        <div className="text-muted-foreground rounded-lg border border-dashed p-3 text-xs">
+          <div className="flex items-start gap-2">
+            <Clock className="mt-0.5 h-4 w-4" />
+            <p className="leading-relaxed">
+              Token hanya bisa dipakai sekali. Setelah suara dikirim, sesi otomatis selesai.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+
+      <CardFooter className="text-muted-foreground flex items-center justify-between text-xs">
+        <span>Waktu</span>
+        <span>{fmtJakarta(now)}</span>
+      </CardFooter>
     </Card>
   );
 }
 
-type StepCardProps = {
-  step: string;
-  title: string;
-  description: string;
-};
+function CandidateDetailDrawer({
+  electionName,
+  candidate,
+  voteEnabled,
+  voteDisabledLabel
+}: {
+  electionName: string | null;
+  candidate: CandidatePair;
+  voteEnabled: boolean;
+  voteDisabledLabel: string;
+}) {
+  const title = candidate.shortName || `Paslon ${candidate.number}`;
 
-function StepCard({ step, title, description }: StepCardProps) {
   return (
-    <Card className="border-muted/60 bg-background/60">
+    <Drawer>
+      <DrawerTrigger asChild>
+        <Button size="sm" variant="secondary" className="min-w-[76px]">
+          Detail
+        </Button>
+      </DrawerTrigger>
+
+      <DrawerContent className="h-[92vh] p-0">
+        <div className="mx-auto flex h-full w-full max-w-2xl flex-col overflow-hidden">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="text-base md:text-lg">
+              Paslon {candidate.number} — {title}
+            </DrawerTitle>
+            <div className="text-muted-foreground text-sm">
+              {electionName ?? "Detail pasangan calon"}
+            </div>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+              <AspectRatio ratio={3 / 4} className="bg-muted/40 overflow-hidden rounded-lg border">
+                {candidate.photoUrl ? (
+                  <img
+                    src={candidate.photoUrl}
+                    alt={`Foto ${title}`}
+                    className="h-full w-full object-cover object-top"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
+                    Tidak ada foto
+                  </div>
+                )}
+              </AspectRatio>
+
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Badge variant="outline" className="text-[11px]">
+                      Ketua
+                    </Badge>
+                    <div className="leading-tight font-semibold">{candidate.ketuaName}</div>
+                    <div className="text-muted-foreground text-xs">{candidate.ketuaClass}</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Badge variant="outline" className="text-[11px]">
+                      Wakil
+                    </Badge>
+                    <div className="leading-tight font-semibold">{candidate.wakilName}</div>
+                    <div className="text-muted-foreground text-xs">{candidate.wakilClass}</div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <Tabs defaultValue="visi" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="visi">Visi</TabsTrigger>
+                    <TabsTrigger value="misi">Misi</TabsTrigger>
+                    <TabsTrigger value="program">Program</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="visi" className="mt-4">
+                    <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
+                      {candidate.vision?.trim() ? candidate.vision : "Belum ada data visi."}
+                    </p>
+                  </TabsContent>
+
+                  <TabsContent value="misi" className="mt-4">
+                    <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
+                      {candidate.mission?.trim() ? candidate.mission : "Belum ada data misi."}
+                    </p>
+                  </TabsContent>
+
+                  <TabsContent value="program" className="mt-4">
+                    <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
+                      {candidate.programs?.trim() ? candidate.programs : "Belum ada data program."}
+                    </p>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+          </div>
+
+          <DrawerFooter className="bg-muted/20 border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:gap-2">
+            {voteEnabled ? (
+              <Button asChild className="w-full sm:w-auto">
+                <Link href="/vote">Masuk Bilik Suara</Link>
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                disabled
+                title={voteDisabledLabel}
+                className="w-full sm:w-auto"
+              >
+                {voteDisabledLabel}
+              </Button>
+            )}
+
+            <DrawerClose asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                Tutup
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+function CandidateCard({
+  electionName,
+  candidate,
+  voteEnabled,
+  voteDisabledLabel
+}: {
+  electionName: string | null;
+  candidate: CandidatePair;
+  voteEnabled: boolean;
+  voteDisabledLabel: string;
+}) {
+  const title = candidate.shortName || `Paslon ${candidate.number}`;
+
+  return (
+    <Card className="flex h-full flex-col overflow-hidden">
+      <CardContent className="p-0">
+        <AspectRatio ratio={3 / 4} className="bg-muted/40">
+          {candidate.photoUrl ? (
+            <img
+              src={candidate.photoUrl}
+              alt={`Foto ${title}`}
+              className="h-full w-full object-cover object-top"
+              loading="lazy"
+            />
+          ) : (
+            <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
+              Foto belum tersedia
+            </div>
+          )}
+        </AspectRatio>
+      </CardContent>
+
       <CardHeader className="space-y-2">
-        <span className="text-muted-foreground font-mono text-xs tracking-[0.18em] uppercase">
-          {step}
-        </span>
-        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-        <CardDescription className="text-xs">{description}</CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="truncate text-lg leading-tight">{title}</CardTitle>
+            <CardDescription className="mt-1 text-sm">
+              <span className="text-foreground font-semibold">{candidate.ketuaName}</span>{" "}
+              <span className="text-muted-foreground">({candidate.ketuaClass})</span>
+              {" · "}
+              <span className="text-foreground font-semibold">{candidate.wakilName}</span>{" "}
+              <span className="text-muted-foreground">({candidate.wakilClass})</span>
+            </CardDescription>
+          </div>
+
+          <Badge variant="outline" className="shrink-0 text-[11px]">
+            #{candidate.number}
+          </Badge>
+        </div>
       </CardHeader>
+
+      <CardContent className="flex-1 pt-0">
+        <p className="text-muted-foreground min-h-[40px] text-sm">
+          Tekan Detail untuk melihat visi, misi, dan program.
+        </p>
+      </CardContent>
+
+      <CardFooter className="bg-muted/20 mt-auto w-full justify-end gap-2 border-t px-6 py-3">
+        <CandidateDetailDrawer
+          electionName={electionName}
+          candidate={candidate}
+          voteEnabled={voteEnabled}
+          voteDisabledLabel={voteDisabledLabel}
+        />
+
+        {voteEnabled ? (
+          <Button asChild size="sm" className="min-w-[64px]">
+            <Link href="/vote">Pilih</Link>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled
+            title={voteDisabledLabel}
+            className="min-w-[64px]"
+          >
+            Pilih
+          </Button>
+        )}
+      </CardFooter>
     </Card>
+  );
+}
+
+function CandidatesSection({
+  electionName,
+  candidates,
+  voteEnabled,
+  voteDisabledLabel
+}: {
+  electionName: string | null;
+  candidates: CandidatePair[];
+  voteEnabled: boolean;
+  voteDisabledLabel: string;
+}) {
+  const hasCandidates = candidates.length > 0;
+
+  return (
+    <section id="kandidat" className="scroll-mt-24 border-t">
+      <div className="container mx-auto max-w-6xl px-4 py-12 md:px-6 lg:py-16">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <div className="bg-background/60 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+              <ListOrdered className="h-3.5 w-3.5" />
+              <span>Pasangan Calon</span>
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              {electionName ?? "Daftar Kandidat"}
+            </h2>
+            <p className="text-muted-foreground max-w-2xl text-sm">
+              Lihat profil singkat setiap paslon. Jika sudah yakin, masuk ke bilik suara untuk
+              memilih.
+            </p>
+          </div>
+        </div>
+
+        {!hasCandidates ? (
+          <Card className="bg-muted/30 border-dashed">
+            <CardContent className="text-muted-foreground py-10 text-center text-sm">
+              Kandidat belum tersedia untuk pemilihan ini.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid auto-rows-fr items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {candidates.map((c) => (
+              <CandidateCard
+                key={c.id}
+                electionName={electionName}
+                candidate={c}
+                voteEnabled={voteEnabled}
+                voteDisabledLabel={voteDisabledLabel}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function HowToVoteSection() {
+  const steps = [
+    {
+      icon: <Ticket className="h-4 w-4" />,
+      title: "Masukkan token",
+      desc: "Token unik dari panitia. Satu token hanya bisa dipakai sekali."
+    },
+    {
+      icon: <Users className="h-4 w-4" />,
+      title: "Pilih paslon",
+      desc: "Baca detail kandidat, lalu tentukan pilihan Anda."
+    },
+    {
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      title: "Konfirmasi & selesai",
+      desc: "Kirim suara. Setelah terkirim, sesi otomatis berakhir."
+    }
+  ];
+
+  return (
+    <section id="cara-memilih" className="bg-muted/30 border-t">
+      <div className="container mx-auto max-w-6xl px-4 py-12 md:px-6 lg:py-16">
+        <div className="mb-8 space-y-2">
+          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span>Cara Memilih</span>
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            Tiga langkah, selesai.
+          </h2>
+          <p className="text-muted-foreground max-w-2xl text-sm">
+            Alur dibuat sederhana agar pemilihan cepat dan tertib.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          {steps.map((s) => (
+            <Card key={s.title}>
+              <CardHeader>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border">
+                  {s.icon}
+                </div>
+                <CardTitle className="text-base">{s.title}</CardTitle>
+                <CardDescription className="text-sm">{s.desc}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+
+        <div className="mt-6 rounded-lg border border-dashed p-4 text-sm">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4" />
+            <p className="leading-relaxed">
+              Jika token bermasalah (invalid/used), hubungi panitia untuk verifikasi.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FaqSection() {
+  return (
+    <section id="faq" className="border-t">
+      <div className="container mx-auto max-w-6xl px-4 py-12 md:px-6 lg:py-16">
+        <div className="mb-8 space-y-2">
+          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+            <Info className="h-3.5 w-3.5" />
+            <span>FAQ</span>
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            Pertanyaan yang sering muncul.
+          </h2>
+          <p className="text-muted-foreground max-w-2xl text-sm">
+            Jawaban singkat untuk mengurangi kebingungan saat hari-H.
+          </p>
+        </div>
+
+        <Card>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="token-invalid">
+                <AccordionTrigger>Token saya tidak valid. Harus bagaimana?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm">
+                  Periksa penulisan token. Jika tetap gagal, hubungi panitia untuk verifikasi token
+                  dan daftar hadir.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="token-used">
+                <AccordionTrigger>Token saya sudah digunakan.</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm">
+                  Token hanya bisa dipakai sekali. Hubungi panitia agar dilakukan pengecekan dan
+                  tindak lanjut sesuai prosedur.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="session-expired">
+                <AccordionTrigger>Sesi habis saat memilih.</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm">
+                  Kembali ke halaman token dan login ulang. Pastikan koneksi stabil saat proses
+                  pemilihan.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="results">
+                <AccordionTrigger>Kenapa hasil belum terlihat?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm">
+                  Hasil hanya muncul jika panitia sudah mempublikasikannya setelah sesi pemilihan
+                  ditutup.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+function StickyVoteCta({ enabled }: { enabled: boolean }) {
+  if (!enabled) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur md:hidden">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="text-muted-foreground inline-flex items-center gap-2 text-xs">
+          <LockKeyholeOpen className="h-4 w-4" />
+          <span>Bilik suara dibuka</span>
+        </div>
+        <Button asChild>
+          <Link href="/vote">Mulai</Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 
 export default async function HomePage() {
-  const election = await getActiveElection();
+  const [activeElection, candidatesData] = await Promise.all([
+    fetchActiveElection(),
+    fetchPublicCandidates()
+  ]);
+
   const now = new Date();
+  const statusInfo = getElectionStatus(activeElection, now);
 
-  let statusLabel = "Tidak Aktif";
-  let statusDesc = "Belum ada agenda pemilihan saat ini.";
-  let badgeVariant: "outline" | "default" | "secondary" = "outline";
-  let alertVariant: "default" | "destructive" = "default";
+  const startAt = activeElection ? new Date(activeElection.startAt) : null;
+  const endAt = activeElection ? new Date(activeElection.endAt) : null;
 
-  if (election) {
-    const start = new Date(election.startAt);
-    const end = new Date(election.endAt);
+  const voteEnabled = Boolean(activeElection && startAt && endAt && now >= startAt && now <= endAt);
 
-    if (now < start) {
-      statusLabel = "Akan Datang";
-      statusDesc = "Pemilihan belum dimulai. Harap tunggu jadwal resmi dari panitia.";
-      badgeVariant = "secondary";
-    } else if (now >= start && now <= end) {
-      statusLabel = "Sedang Berlangsung";
-      statusDesc = "Bilik suara sedang dibuka. Silakan gunakan token Anda untuk memilih.";
-      badgeVariant = "default";
-    } else {
-      statusLabel = "Selesai";
-      statusDesc = "Sesi pemilihan telah berakhir. Hasil dapat direkap oleh panitia.";
-      badgeVariant = "secondary";
-    }
+  const voteDisabledLabel =
+    statusInfo.status === "UPCOMING"
+      ? "Belum dibuka"
+      : statusInfo.status === "CLOSED"
+        ? "Sudah selesai"
+        : statusInfo.status === "NONE"
+          ? "Tidak aktif"
+          : "Mulai memilih";
 
-    if (now > end) {
-      alertVariant = "destructive";
-    }
-  }
-
-  const startAt = election ? new Date(election.startAt) : null;
-  const endAt = election ? new Date(election.endAt) : null;
-
-  let progressValue = 0;
-  if (election && startAt && endAt && now >= startAt && now <= endAt) {
-    const total = endAt.getTime() - startAt.getTime();
-    const elapsed = now.getTime() - startAt.getTime();
-    progressValue = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
-  }
+  const candidates = candidatesData?.candidates ?? [];
+  const electionName = candidatesData?.election?.name ?? activeElection?.name ?? null;
+  const electionSlug = activeElection?.slug ?? candidatesData?.election?.slug ?? null;
 
   return (
-    <div className="bg-background text-foreground flex min-h-screen flex-col">
+    <div
+      className={
+        voteEnabled
+          ? "flex min-h-screen flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0"
+          : "flex min-h-screen flex-col"
+      }
+    >
       <Navbar />
 
       <main className="flex-1">
-        <TooltipProvider>
-          <section className="border-b">
-            <div className="container mx-auto grid max-w-5xl gap-10 px-4 py-12 md:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:py-20">
-              <div className="flex flex-col gap-6 text-left">
-                <div className="inline-flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="border-dashed px-3 py-1 font-mono text-xs tracking-[0.18em] uppercase"
-                  >
-                    E-Pilketos System
+        <section className="border-b">
+          <div className="container mx-auto grid max-w-6xl gap-8 px-4 py-12 md:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:py-16">
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={voteEnabled ? "default" : "secondary"} className="text-xs">
+                  {statusInfo.label}
+                </Badge>
+                {electionSlug ? (
+                  <Badge variant="outline" className="text-xs">
+                    {electionSlug}
                   </Badge>
-                  {election && (
-                    <Badge
-                      variant="secondary"
-                      className="font-mono text-[0.7rem] tracking-[0.16em] uppercase"
-                    >
-                      #{election.slug ?? "pilketos"}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <h1 className="text-4xl font-semibold tracking-tight text-balance lg:text-5xl xl:text-6xl">
-                    Suara Anda,
-                    <span className="text-foreground/80 block font-mono">Masa Depan Kita.</span>
-                  </h1>
-                  <p className="text-muted-foreground max-w-xl text-base md:text-lg">
-                    Platform pemilihan digital berbasis token untuk pemilihan ketua OSIS yang aman,
-                    jujur, dan transparan. Tanpa manipulasi, hasil real-time, dan jejak audit yang
-                    jelas.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4">
-                  {election ? (
-                    <Button asChild size="lg">
-                      <Link href="/vote" className="font-mono text-sm">
-                        Mulai Memilih
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button size="lg" disabled className="font-mono text-sm">
-                      <LockKeyhole className="mr-2 h-4 w-4" />
-                      Pemilihan Belum Dibuka
-                    </Button>
-                  )}
-
-                  <Button asChild variant="secondary" size="lg">
-                    <Link href="/candidates" className="font-mono text-sm">
-                      Lihat Kandidat
-                    </Link>
-                  </Button>
-
-                  <div className="text-muted-foreground hidden flex-1 flex-col gap-1 text-xs sm:flex">
-                    <span className="font-mono tracking-[0.18em] uppercase">
-                      dirancang untuk pilketos
-                    </span>
-                    <span>
-                      Mengurangi kertas, mempercepat rekapitulasi, dan menjaga integritas suara
-                      siswa.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-muted-foreground flex flex-wrap gap-3 text-xs">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1"
-                      >
-                        <ShieldCheck className="h-3 w-3" />
-                        <span className="font-mono tracking-[0.16em] uppercase">
-                          verifikasi token
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-xs">
-                      Setiap token unik dan hanya bisa digunakan satu kali.
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1"
-                      >
-                        <BarChart3 className="h-3 w-3" />
-                        <span className="font-mono tracking-[0.16em] uppercase">
-                          hasil real-time
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-xs">
-                      Panitia dapat memonitor progres perolehan suara saat itu juga.
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1"
-                      >
-                        <Users className="h-3 w-3" />
-                        <span className="font-mono tracking-[0.16em] uppercase">
-                          satu siswa, satu suara
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-xs">
-                      Sistem memastikan tidak ada penggandaan suara.
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+                ) : null}
               </div>
 
-              <Card className="border-primary/15 bg-background/70 shadow-sm backdrop-blur">
-                <CardHeader className="space-y-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                      <Info className="h-4 w-4" />
-                      <span className="font-mono tracking-[0.18em] uppercase">status sistem</span>
-                    </div>
-                    <Badge
-                      variant={badgeVariant}
-                      className="font-mono text-[0.65rem] tracking-[0.16em] uppercase"
-                    >
-                      {statusLabel}
+              <div className="space-y-3">
+                <h1 className="text-4xl leading-[1.05] font-semibold tracking-tight md:text-5xl lg:text-6xl">
+                  Pemilihan Ketua OSIS
+                </h1>
+                <p className="text-muted-foreground max-w-2xl text-base md:text-lg">
+                  Masukkan token untuk memilih. Satu token hanya sekali pakai.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                {voteEnabled ? (
+                  <Button asChild size="lg">
+                    <Link href="/vote">Mulai Memilih</Link>
+                  </Button>
+                ) : (
+                  <Button size="lg" variant="secondary" disabled title={voteDisabledLabel}>
+                    <LockKeyhole className="mr-2 h-4 w-4" />
+                    {voteDisabledLabel}
+                  </Button>
+                )}
+
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/#kandidat">Lihat Kandidat</Link>
+                </Button>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-base">
+                      {electionName ?? "Informasi pemilihan"}
+                    </CardTitle>
+                    <Badge variant="outline" className="text-[11px]">
+                      Jadwal
                     </Badge>
                   </div>
-
-                  <Alert variant={alertVariant}>
-                    <AlertTitle className="text-sm font-semibold">
-                      {election ? election.name : "Belum ada agenda pemilihan"}
-                    </AlertTitle>
-                    <AlertDescription className="text-xs leading-relaxed">
-                      {statusDesc}
-                    </AlertDescription>
-                  </Alert>
+                  <CardDescription className="text-sm">
+                    {voteEnabled
+                      ? "Bilik suara dibuka sampai waktu berakhir."
+                      : statusInfo.status === "UPCOMING"
+                        ? "Pemilihan belum dibuka. Anda tetap bisa melihat kandidat."
+                        : statusInfo.status === "CLOSED"
+                          ? "Pemilihan sudah selesai. Menunggu publikasi hasil dari panitia."
+                          : "Belum ada pemilihan aktif saat ini."}
+                  </CardDescription>
                 </CardHeader>
 
-                <CardContent className="space-y-4">
-                  <Separator />
-
-                  <div className="grid gap-4 text-sm sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground font-mono text-xs tracking-[0.18em] uppercase">
-                        Mulai
-                      </span>
-                      <div className="bg-muted/40 rounded-md border px-3 py-2 font-mono text-xs">
-                        {startAt ? startAt.toLocaleString("id-ID") : "Belum dijadwalkan"}
+                <CardContent className="pt-0">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="bg-background/60 rounded-lg border p-3">
+                      <div className="text-muted-foreground text-xs">Mulai</div>
+                      <div className="mt-1 text-sm">
+                        {startAt ? fmtJakarta(startAt) : "Belum dijadwalkan"}
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground font-mono text-xs tracking-[0.18em] uppercase">
-                        Selesai
-                      </span>
-                      <div className="bg-muted/40 rounded-md border px-3 py-2 font-mono text-xs">
-                        {endAt ? endAt.toLocaleString("id-ID") : "Belum dijadwalkan"}
+                    <div className="bg-background/60 rounded-lg border p-3">
+                      <div className="text-muted-foreground text-xs">Selesai</div>
+                      <div className="mt-1 text-sm">
+                        {endAt ? fmtJakarta(endAt) : "Belum dijadwalkan"}
                       </div>
                     </div>
                   </div>
-
-                  {election && startAt && endAt && (
-                    <div className="space-y-2">
-                      <div className="text-muted-foreground flex items-center justify-between text-xs">
-                        <span className="font-mono tracking-[0.16em] uppercase">progres sesi</span>
-                        <span className="font-mono">{progressValue.toFixed(0)}%</span>
-                      </div>
-                      <Progress value={progressValue} className="h-1.5" />
-                    </div>
-                  )}
-
-                  {election && (
-                    <Alert className="bg-muted/40 border-dashed text-xs">
-                      <Clock className="h-4 w-4" />
-                      <AlertDescription className="text-muted-foreground leading-relaxed">
-                        Pastikan Anda menggunakan token sebelum sesi pemilihan berakhir. Setelah
-                        waktu berakhir, sistem akan menutup bilik suara secara otomatis.
-                      </AlertDescription>
-                    </Alert>
-                  )}
                 </CardContent>
-
-                <CardFooter className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
-                  <span className="font-mono tracking-[0.18em] uppercase">terakhir diperbarui</span>
-                  <span>{now.toLocaleString("id-ID")}</span>
-                </CardFooter>
               </Card>
             </div>
-          </section>
 
-          <section className="bg-muted/40">
-            <div className="container mx-auto max-w-5xl px-4 py-12 md:px-6 lg:py-16">
-              <div className="mb-10 space-y-3 text-center">
-                <p className="text-muted-foreground font-mono text-xs tracking-[0.18em] uppercase">
-                  kenapa e-pilketos
-                </p>
-                <h2 className="text-2xl font-semibold tracking-tight text-balance md:text-3xl">
-                  Transparan untuk panitia, sederhana untuk siswa.
-                </h2>
-                <p className="text-muted-foreground mx-auto max-w-2xl text-sm md:text-base">
-                  Dibangun untuk alur pemilihan di sekolah: dari pembagian token hingga rekap suara
-                  akhir, semuanya tercatat dengan rapi dan bisa diaudit.
-                </p>
-              </div>
+            <StatusCard
+              election={activeElection}
+              status={statusInfo.status}
+              label={statusInfo.label}
+              description={statusInfo.description}
+              now={now}
+            />
+          </div>
+        </section>
 
-              <div className="grid gap-6 md:grid-cols-3">
-                <FeatureCard
-                  icon={<ShieldCheck className="h-4 w-4" />}
-                  title="Token Terverifikasi"
-                  description="Setiap siswa mendapatkan token unik sehingga tidak ada penggandaan suara dan semua akses tercatat."
-                />
-                <FeatureCard
-                  icon={<BarChart3 className="h-4 w-4" />}
-                  title="Rekap Real-time"
-                  description="Panitia dapat memantau jumlah partisipan dan hasil sementara tanpa menunggu penghitungan manual."
-                />
-                <FeatureCard
-                  icon={<Users className="h-4 w-4" />}
-                  title="Sesuai Prosedur Sekolah"
-                  description="Alur pemilihan mengikuti SOP panitia OSIS dan mudah disesuaikan dengan aturan di masing-masing sekolah."
-                />
-              </div>
-            </div>
-          </section>
+        <CandidatesSection
+          electionName={electionName}
+          candidates={candidates}
+          voteEnabled={voteEnabled}
+          voteDisabledLabel={voteDisabledLabel}
+        />
 
-          <section>
-            <div className="container mx-auto max-w-5xl px-4 py-12 md:px-6 lg:py-16">
-              <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-md space-y-4">
-                  <p className="text-muted-foreground font-mono text-xs tracking-[0.18em] uppercase">
-                    alur pemilihan
-                  </p>
-                  <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                    Dari token ke hasil akhir, dalam empat langkah.
-                  </h2>
-                  <p className="text-muted-foreground text-sm md:text-base">
-                    Jelaskan alur ini kepada siswa sebelum hari-H agar proses pemilihan berjalan
-                    cepat, tertib, dan minim pertanyaan di bilik suara.
-                  </p>
-                  <div className="text-muted-foreground mt-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    <span>Cocok untuk simulasi sebelum pemilihan utama di hari berikutnya.</span>
-                  </div>
-                </div>
-
-                <div className="flex-1 space-y-4">
-                  <Tabs defaultValue="siswa" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger
-                        value="siswa"
-                        className="font-mono text-xs tracking-[0.16em] uppercase"
-                      >
-                        Alur Siswa
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="panitia"
-                        className="font-mono text-xs tracking-[0.16em] uppercase"
-                      >
-                        Alur Panitia
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="siswa" className="mt-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <StepCard
-                          step="langkah 01"
-                          title="Menerima Token"
-                          description="Siswa menerima token unik dari panitia sesuai daftar hadir."
-                        />
-                        <StepCard
-                          step="langkah 02"
-                          title="Akses Halaman"
-                          description="Siswa membuka halaman pemilihan dan memasukkan token untuk verifikasi."
-                        />
-                        <StepCard
-                          step="langkah 03"
-                          title="Memilih Kandidat"
-                          description="Siswa membaca profil kandidat, memilih, dan mengirim suara."
-                        />
-                        <StepCard
-                          step="langkah 04"
-                          title="Selesai"
-                          description="Siswa mendapatkan konfirmasi bahwa suaranya tercatat."
-                        />
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="panitia" className="mt-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <StepCard
-                          step="langkah 01"
-                          title="Siapkan Data"
-                          description="Panitia mengatur daftar pemilih, kandidat, dan jadwal pemilihan di sistem."
-                        />
-                        <StepCard
-                          step="langkah 02"
-                          title="Distribusi Token"
-                          description="Token unik dicetak atau dibagikan ke setiap siswa sesuai daftar hadir."
-                        />
-                        <StepCard
-                          step="langkah 03"
-                          title="Monitoring"
-                          description="Selama pemilihan, panitia memantau progres partisipasi dan memastikan tidak ada kendala teknis."
-                        />
-                        <StepCard
-                          step="langkah 04"
-                          title="Rekap & Arsip"
-                          description="Setelah sesi berakhir, panitia mengunduh hasil resmi dan mengarsipkan laporan pemilihan."
-                        />
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-
-                  <Alert className="bg-muted/40 mt-2 border-dashed text-xs">
-                    <ListChecks className="h-4 w-4" />
-                    <AlertDescription className="text-muted-foreground leading-relaxed">
-                      Gunakan alur ini sebagai bahan sosialisasi di kelas atau saat technical
-                      meeting sebelum hari pelaksanaan.
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              </div>
-            </div>
-          </section>
-        </TooltipProvider>
+        <HowToVoteSection />
+        <FaqSection />
+        <StickyVoteCta enabled={voteEnabled} />
       </main>
 
       <Footer />
