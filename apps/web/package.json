@@ -11,6 +11,8 @@
     "format:check": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check"
   },
   "dependencies": {
+    "@e-pilketos/types": "workspace:*",
+    "@e-pilketos/validators": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

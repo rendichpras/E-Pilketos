@@ -1,0 +1,1 @@
+export { healthApp } from "./routes";

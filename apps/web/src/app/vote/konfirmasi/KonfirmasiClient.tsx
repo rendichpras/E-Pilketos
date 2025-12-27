@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
 import type { PublicCandidatesResponse, CandidatePair, Election } from "@/lib/types";
 
 import { VoteShell } from "@/components/vote/vote-shell";
@@ -89,9 +89,8 @@ function CandidateDetailDrawer({
   candidate: CandidatePair;
   disabled: boolean;
 }) {
-  const anyC = candidate as any;
-  const title = anyC.shortName ?? `Paslon ${anyC.number}`;
-  const photoUrl = anyC.photoUrl ?? anyC.photo_url ?? anyC.photoURL ?? null;
+  const title = candidate.shortName ?? `Paslon ${candidate.number}`;
+  const photoUrl = candidate.photoUrl ?? null;
 
   return (
     <Drawer>
@@ -105,7 +104,7 @@ function CandidateDetailDrawer({
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden">
           <DrawerHeader className="text-left">
             <DrawerTitle className="text-base md:text-lg">
-              Paslon {anyC.number} — {title}
+              Paslon {candidate.number} — {title}
             </DrawerTitle>
             <div className="text-muted-foreground text-sm">
               {electionName ?? "Detail pasangan calon"}
@@ -136,16 +135,16 @@ function CandidateDetailDrawer({
                     <Badge variant="outline" className="text-[11px]">
                       Ketua
                     </Badge>
-                    <div className="leading-tight font-semibold">{anyC.ketuaName}</div>
-                    <div className="text-muted-foreground text-xs">{anyC.ketuaClass}</div>
+                    <div className="leading-tight font-semibold">{candidate.ketuaName}</div>
+                    <div className="text-muted-foreground text-xs">{candidate.ketuaClass}</div>
                   </div>
 
                   <div className="space-y-1">
                     <Badge variant="outline" className="text-[11px]">
                       Wakil
                     </Badge>
-                    <div className="leading-tight font-semibold">{anyC.wakilName}</div>
-                    <div className="text-muted-foreground text-xs">{anyC.wakilClass}</div>
+                    <div className="leading-tight font-semibold">{candidate.wakilName}</div>
+                    <div className="text-muted-foreground text-xs">{candidate.wakilClass}</div>
                   </div>
                 </div>
 
@@ -160,19 +159,19 @@ function CandidateDetailDrawer({
 
                   <TabsContent value="visi" className="mt-4">
                     <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
-                      {anyC.vision?.trim() ? anyC.vision : "Belum ada data visi."}
+                      {candidate.vision?.trim() ? candidate.vision : "Belum ada data visi."}
                     </p>
                   </TabsContent>
 
                   <TabsContent value="misi" className="mt-4">
                     <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
-                      {anyC.mission?.trim() ? anyC.mission : "Belum ada data misi."}
+                      {candidate.mission?.trim() ? candidate.mission : "Belum ada data misi."}
                     </p>
                   </TabsContent>
 
                   <TabsContent value="program" className="mt-4">
                     <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
-                      {anyC.programs?.trim() ? anyC.programs : "Belum ada data program."}
+                      {candidate.programs?.trim() ? candidate.programs : "Belum ada data program."}
                     </p>
                   </TabsContent>
                 </Tabs>
@@ -251,18 +250,21 @@ export default function KonfirmasiClient() {
           candidate: found,
           error: null
         }));
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (cancelled) return;
 
-        if (err?.status === 401) {
+        if (err instanceof ApiError && err.status === 401) {
           router.replace("/vote?reason=session_expired");
           return;
         }
 
+        const message =
+          err instanceof ApiError ? err.message || "Gagal memuat data." : "Gagal memuat data.";
+
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: err?.data?.error ?? "Gagal memuat data."
+          error: message
         }));
       }
     }
@@ -286,18 +288,20 @@ export default function KonfirmasiClient() {
     try {
       await apiClient.post("/voter/vote", { candidatePairId: state.candidate.id });
       router.replace("/vote/sukses");
-    } catch (err: any) {
-      const msg: string = err?.data?.error ?? "";
-      const code: string | undefined = err?.data?.code;
+    } catch (err: unknown) {
+      const isApiError = err instanceof ApiError;
+      const msg: string = isApiError ? err.message : "";
+      const code: string | undefined = isApiError ? err.code : undefined;
+      const status = isApiError ? err.status : 0;
 
-      if (err?.status === 401) {
+      if (status === 401) {
         router.replace("/vote?reason=session_expired");
         return;
       }
 
       if (
         code === "TOKEN_USED" ||
-        (err?.status === 400 && msg.toLowerCase().includes("token sudah digunakan"))
+        (status === 400 && msg.toLowerCase().includes("token sudah digunakan"))
       ) {
         router.replace("/vote/sukses?reason=token_used");
         return;
@@ -305,7 +309,7 @@ export default function KonfirmasiClient() {
 
       if (
         code === "INVALID_CANDIDATE" ||
-        (err?.status === 400 && msg.toLowerCase().includes("pasangan calon tidak valid"))
+        (status === 400 && msg.toLowerCase().includes("pasangan calon tidak valid"))
       ) {
         router.replace("/vote/surat-suara?reason=invalid_choice");
         return;
@@ -369,9 +373,9 @@ export default function KonfirmasiClient() {
     );
   }
 
-  const anyC = state.candidate as any;
-  const title = anyC.shortName ?? `Paslon ${anyC.number}`;
-  const photoUrl = anyC.photoUrl ?? anyC.photo_url ?? anyC.photoURL ?? null;
+  const candidate = state.candidate;
+  const title = candidate.shortName ?? `Paslon ${candidate.number}`;
+  const photoUrl = candidate.photoUrl ?? null;
 
   return (
     <VoteShell>
@@ -397,18 +401,18 @@ export default function KonfirmasiClient() {
               <div className="min-w-0 space-y-1">
                 <CardTitle className="truncate text-xl leading-tight">{title}</CardTitle>
                 <CardDescription className="text-sm">
-                  Ketua: <span className="text-foreground font-semibold">{anyC.ketuaName}</span>{" "}
-                  <span className="text-muted-foreground">({anyC.ketuaClass})</span>
+                  Ketua:{" "}
+                  <span className="text-foreground font-semibold">{candidate.ketuaName}</span>{" "}
+                  <span className="text-muted-foreground">({candidate.ketuaClass})</span>
                   {" - "}
-                  Wakil: <span className="text-foreground font-semibold">
-                    {anyC.wakilName}
-                  </span>{" "}
-                  <span className="text-muted-foreground">({anyC.wakilClass})</span>
+                  Wakil:{" "}
+                  <span className="text-foreground font-semibold">{candidate.wakilName}</span>{" "}
+                  <span className="text-muted-foreground">({candidate.wakilClass})</span>
                 </CardDescription>
               </div>
 
               <Badge variant="outline" className="shrink-0">
-                #{anyC.number}
+                #{candidate.number}
               </Badge>
             </div>
           </CardHeader>
@@ -454,16 +458,16 @@ export default function KonfirmasiClient() {
                   <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
                     Ketua
                   </p>
-                  <p className="mt-1 leading-tight font-semibold">{anyC.ketuaName}</p>
-                  <p className="text-muted-foreground text-sm">{anyC.ketuaClass}</p>
+                  <p className="mt-1 leading-tight font-semibold">{candidate.ketuaName}</p>
+                  <p className="text-muted-foreground text-sm">{candidate.ketuaClass}</p>
                 </div>
 
                 <div className="bg-background/60 rounded-xl border p-4">
                   <p className="text-muted-foreground font-mono text-[11px] tracking-[0.16em] uppercase">
                     Wakil
                   </p>
-                  <p className="mt-1 leading-tight font-semibold">{anyC.wakilName}</p>
-                  <p className="text-muted-foreground text-sm">{anyC.wakilClass}</p>
+                  <p className="mt-1 leading-tight font-semibold">{candidate.wakilName}</p>
+                  <p className="text-muted-foreground text-sm">{candidate.wakilClass}</p>
                 </div>
               </div>
 
@@ -505,7 +509,7 @@ export default function KonfirmasiClient() {
                 dipilih
               </p>
               <p className="truncate text-sm font-semibold">
-                {anyC.number} - {title}
+                {candidate.number} - {title}
               </p>
             </div>
 

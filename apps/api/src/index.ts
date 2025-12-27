@@ -8,18 +8,23 @@ import { secureHeaders } from "hono/secure-headers";
 import { env } from "./env";
 import type { AppEnv } from "./app-env";
 
-import { requestId } from "./middlewares/requestId";
-import { onError } from "./middlewares/errorHandler";
-import { originGuard } from "./middlewares/originGuard";
-import { healthApp } from "./routes/health";
+// Core modules
+import { requestId, onError, originGuard } from "./core/middleware";
 
-import { adminAuthApp } from "./routes/adminAuth";
-import { voterAuthApp } from "./routes/voterAuth";
-import { adminElectionsApp, publicElectionsApp } from "./routes/elections";
-import { adminCandidatesApp, publicCandidatesApp } from "./routes/candidates";
-import { adminTokensApp } from "./routes/tokens";
-import { adminResultsApp, publicResultsApp } from "./routes/results";
-import { voterApp } from "./routes/voter";
+// Feature modules
+import {
+  adminAuthApp,
+  voterAuthApp,
+  adminElectionsApp,
+  publicElectionsApp,
+  adminCandidatesApp,
+  publicCandidatesApp,
+  adminTokensApp,
+  voterApp,
+  adminResultsApp,
+  publicResultsApp,
+  healthApp
+} from "./features";
 
 const app = new Hono<AppEnv>().basePath("/api/v1");
 
@@ -68,17 +73,21 @@ app.use(
   })
 );
 
+// Health
 app.route("/health", healthApp);
 
+// Admin routes
 app.route("/admin/auth", adminAuthApp);
 app.route("/admin/elections", adminElectionsApp);
 app.route("/admin/candidates", adminCandidatesApp);
 app.route("/admin/tokens", adminTokensApp);
 app.route("/admin/results", adminResultsApp);
 
+// Voter routes
 app.route("/auth", voterAuthApp);
 app.route("/voter", voterApp);
 
+// Public routes
 app.route("/public/elections", publicElectionsApp);
 app.route("/public/candidates", publicCandidatesApp);
 app.route("/public/results", publicResultsApp);
@@ -89,9 +98,7 @@ serve(
     port: env.PORT
   },
   (info) => {
-    console.log(
-      `E-Pilketos API running on http://localhost:${info.port}/api/v1/health (ready: /api/v1/health/ready)`
-    );
+    console.log(`E-Pilketos API running on http://localhost:${info.port}/api/v1/health`);
   }
 );
 

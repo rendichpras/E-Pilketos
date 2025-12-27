@@ -17,7 +17,7 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet";
 
-import { API_BASE_URL } from "@/lib/config";
+import { apiClient } from "@/lib/api-client";
 import type { PublicActiveElectionResponse } from "@/lib/types";
 
 const navLinks = [
@@ -35,15 +35,7 @@ export function Navbar() {
 
     async function check() {
       try {
-        const res = await fetch(`${API_BASE_URL}/public/elections/active`, {
-          cache: "no-store"
-        });
-        if (!res.ok) {
-          if (!cancelled) setVoteState("closed");
-          return;
-        }
-
-        const data = (await res.json()) as PublicActiveElectionResponse;
+        const data = await apiClient.get<PublicActiveElectionResponse>("/public/elections/active");
         if (cancelled) return;
         setVoteState(data?.activeElection ? "open" : "closed");
       } catch {
@@ -66,7 +58,7 @@ export function Navbar() {
         : "Mulai Memilih";
 
   return (
-    <header className="border-border bg-background/90 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-50 w-full border-b backdrop-blur">
+    <header className="border-border bg-background/90 supports-backdrop-filter:bg-background/70 sticky top-0 z-50 w-full border-b backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:h-16 md:px-6">
         <Link
           href="/"

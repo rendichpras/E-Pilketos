@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { API_BASE_URL } from "@/lib/config";
+import { publicGet, ServerApiError } from "@/lib/api/server";
 import type { Election, PublicResultsResponse } from "@/lib/types";
 
 import { Navbar } from "@/components/navbar";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-import { AlertCircle, BarChart3, CalendarX2, LockKeyhole, Trophy } from "lucide-react";
+import { AlertCircle, BarChart3, CalendarX2, LockKeyhole } from "lucide-react";
 
 import { VotesBarChart, type VotesChartDatum } from "./chart";
 
@@ -24,15 +24,14 @@ type FetchResult = {
 
 async function getResults(): Promise<FetchResult> {
   try {
-    const res = await fetch(`${API_BASE_URL}/public/results`, { cache: "no-store" });
-
-    if (!res.ok) {
-      const payload = await res.json().catch(() => null);
-      return { status: res.status, data: null, error: payload?.error ?? null };
+    const data = await publicGet<PublicResultsResponse>("/public/results", {
+      cache: "no-store"
+    });
+    return { status: 200, data, error: null };
+  } catch (err) {
+    if (err instanceof ServerApiError) {
+      return { status: err.status, data: null, error: err.message };
     }
-
-    return { status: 200, data: (await res.json()) as PublicResultsResponse, error: null };
-  } catch {
     return null;
   }
 }
@@ -110,9 +109,9 @@ function buildRanked(data: PublicResultsResponse) {
   const ranked: Ranked[] = (data.results ?? [])
     .map((r) => ({
       id: r.candidate.id,
-      number: Number((r.candidate as any).number ?? 0),
-      shortName: (r.candidate as any).shortName ?? null,
-      votes: Number((r as any).voteCount ?? 0)
+      number: r.candidate.number,
+      shortName: r.candidate.shortName ?? null,
+      votes: r.voteCount
     }))
     .sort((a, b) => b.votes - a.votes || a.number - b.number);
 

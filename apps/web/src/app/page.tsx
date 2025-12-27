@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { API_BASE_URL } from "@/lib/config";
+import { publicGet, ServerApiError } from "@/lib/api/server";
 import type {
   CandidatePair,
   Election,
@@ -101,21 +101,27 @@ function getElectionStatus(election: Election | null, now: Date) {
 
 async function fetchActiveElection(): Promise<Election | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/public/elections/active`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const data: PublicActiveElectionResponse = await res.json();
+    const data = await publicGet<PublicActiveElectionResponse>("/public/elections/active", {
+      cache: "no-store"
+    });
     return data.activeElection ?? null;
-  } catch {
+  } catch (err) {
+    if (err instanceof ServerApiError) {
+      console.error("Failed to fetch active election:", err.message);
+    }
     return null;
   }
 }
 
 async function fetchPublicCandidates(): Promise<PublicCandidatesResponse | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/public/candidates`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as PublicCandidatesResponse;
-  } catch {
+    return await publicGet<PublicCandidatesResponse>("/public/candidates", {
+      cache: "no-store"
+    });
+  } catch (err) {
+    if (err instanceof ServerApiError) {
+      console.error("Failed to fetch candidates:", err.message);
+    }
     return null;
   }
 }
@@ -609,7 +615,7 @@ function StickyVoteCta({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
 
   return (
-    <div className="bg-background/90 supports-[backdrop-filter]:bg-background/70 fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur md:hidden">
+    <div className="bg-background/90 supports-backdrop-filter:bg-background/70 fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <div className="text-muted-foreground inline-flex items-center gap-2 text-xs">
           <LockKeyholeOpen className="h-4 w-4" />
