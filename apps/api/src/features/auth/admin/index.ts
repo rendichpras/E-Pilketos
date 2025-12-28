@@ -1,3 +1,3 @@
-export { adminAuth } from "./middleware";
+export { adminAuthApp } from "./auth.routes";
+export { adminAuth } from "./auth.middleware";
 export { requireRole } from "./require-role";
-export { adminAuthApp } from "./routes";

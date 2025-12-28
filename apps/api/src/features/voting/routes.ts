@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { deleteCookie } from "hono/cookie";
 import type { AppEnv } from "../../app-env";
 import { voterAuth } from "./voter-middleware";
-import { adminAuth } from "../auth/admin/middleware";
+import { adminAuth } from "../auth/admin/auth.middleware";
 import { votingService, resultsService } from "./service";
 import { success, created } from "../../core/response";
 import { rateLimit, getClientIp, rateLimitConfig } from "../../core/middleware";

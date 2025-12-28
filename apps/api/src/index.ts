@@ -1,17 +1,15 @@
 import "dotenv/config";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
 import { secureHeaders } from "hono/secure-headers";
 import { env } from "./env";
 import type { AppEnv } from "./app-env";
+import { logger } from "./core/logger";
 
-// Core modules
-import { requestId, onError, originGuard } from "./core/middleware";
+import { requestId, onError, originGuard, loggerMiddleware } from "./core/middleware";
 
-// Feature modules
 import {
   adminAuthApp,
   voterAuthApp,
@@ -43,7 +41,7 @@ const allowedOrigins = parseOrigins(env.CORS_ORIGIN);
 app.onError(onError);
 
 app.use("*", requestId);
-app.use("*", logger());
+app.use("*", loggerMiddleware());
 app.use("*", prettyJSON());
 
 app.use(
@@ -73,21 +71,17 @@ app.use(
   })
 );
 
-// Health
 app.route("/health", healthApp);
 
-// Admin routes
 app.route("/admin/auth", adminAuthApp);
 app.route("/admin/elections", adminElectionsApp);
 app.route("/admin/candidates", adminCandidatesApp);
 app.route("/admin/tokens", adminTokensApp);
 app.route("/admin/results", adminResultsApp);
 
-// Voter routes
 app.route("/auth", voterAuthApp);
 app.route("/voter", voterApp);
 
-// Public routes
 app.route("/public/elections", publicElectionsApp);
 app.route("/public/candidates", publicCandidatesApp);
 app.route("/public/results", publicResultsApp);
@@ -98,7 +92,7 @@ serve(
     port: env.PORT
   },
   (info) => {
-    console.log(`E-Pilketos API running on http://localhost:${info.port}/api/v1/health`);
+    logger.info(`E-Pilketos API running on http://localhost:${info.port}/api/v1/health`);
   }
 );
 

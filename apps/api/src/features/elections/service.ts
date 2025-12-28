@@ -1,13 +1,9 @@
 import { db } from "../../db/client";
 import { elections } from "../../db/schema";
 import { and, eq, ne } from "drizzle-orm";
-import {
-  electionRepository,
-  logAudit,
-  type CreateElectionData,
-  type UpdateElectionData
-} from "./repository";
+import { electionRepository, type CreateElectionData, type UpdateElectionData } from "./repository";
 import { NotFoundError, BadRequestError, ConflictError } from "../../core/errors";
+import { logAudit } from "../../shared/audit";
 
 export const electionService = {
   async getAll() {

@@ -114,17 +114,3 @@ export const electionRepository = {
       .where(and(eq(elections.status, "ACTIVE"), ne(elections.id, exceptId)));
   }
 };
-
-export async function logAudit(
-  adminId: string,
-  electionId: string,
-  action: string,
-  metadata?: Record<string, unknown>
-) {
-  await db.insert(auditLogs).values({
-    adminId,
-    electionId,
-    action,
-    metadata: metadata ?? null
-  });
-}

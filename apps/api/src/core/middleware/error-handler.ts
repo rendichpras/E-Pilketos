@@ -11,10 +11,10 @@ type PgErr = {
 type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 429 | 500;
 
 function pickStatusFromPg(e: PgErr): ErrorStatus {
-  if (e.code === "23505") return 409; // unique_violation
-  if (e.code === "23503") return 409; // foreign_key_violation
-  if (e.code === "23514") return 400; // check_violation
-  if (e.code === "22P02") return 400; // invalid_text_representation
+  if (e.code === "23505") return 409;
+  if (e.code === "23503") return 409;
+  if (e.code === "23514") return 400;
+  if (e.code === "22P02") return 400;
   return 500;
 }
 

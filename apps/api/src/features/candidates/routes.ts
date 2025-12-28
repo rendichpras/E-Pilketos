@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../app-env";
-import { adminAuth } from "../auth/admin/middleware";
+import { adminAuth } from "../auth/admin/auth.middleware";
 import { candidateService } from "./service";
 import { success, created, noContent } from "../../core/response";
 import { createCandidateSchema, updateCandidateSchema } from "@e-pilketos/validators";

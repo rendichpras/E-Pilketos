@@ -13,7 +13,6 @@ import {
   uniqueIndex
 } from "drizzle-orm/pg-core";
 
-// ENUM
 export const electionStatusEnum = pgEnum("election_status", [
   "DRAFT",
   "ACTIVE",
@@ -23,7 +22,6 @@ export const electionStatusEnum = pgEnum("election_status", [
 export const tokenStatusEnum = pgEnum("token_status", ["UNUSED", "USED", "INVALIDATED"]);
 export const adminRoleEnum = pgEnum("admin_role", ["SUPER_ADMIN", "COMMITTEE"]);
 
-// elections
 export const elections = pgTable(
   "elections",
   {
@@ -47,7 +45,6 @@ export const elections = pgTable(
   })
 );
 
-// candidate_pairs
 export const candidatePairs = pgTable(
   "candidate_pairs",
   {
@@ -78,7 +75,6 @@ export const candidatePairs = pgTable(
   })
 );
 
-// tokens
 export const tokens = pgTable(
   "tokens",
   {
@@ -100,7 +96,6 @@ export const tokens = pgTable(
   })
 );
 
-// votes
 export const votes = pgTable(
   "votes",
   {
@@ -119,7 +114,6 @@ export const votes = pgTable(
   })
 );
 
-// admins
 export const admins = pgTable(
   "admins",
   {
@@ -135,7 +129,6 @@ export const admins = pgTable(
   })
 );
 
-// admin_sessions
 export const adminSessions = pgTable(
   "admin_sessions",
   {
@@ -154,7 +147,6 @@ export const adminSessions = pgTable(
   })
 );
 
-// voter_sessions
 export const voterSessions = pgTable(
   "voter_sessions",
   {
@@ -178,7 +170,6 @@ export const voterSessions = pgTable(
   })
 );
 
-// audit_logs
 export const auditLogs = pgTable(
   "audit_logs",
   {

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../app-env";
-import { adminAuth } from "../auth/admin/middleware";
+import { adminAuth } from "../auth/admin/auth.middleware";
 import { requireRole } from "../auth/admin/require-role";
 import { electionService } from "./service";
 import { success, created } from "../../core/response";

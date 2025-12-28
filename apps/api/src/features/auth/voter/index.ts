@@ -1,1 +1,1 @@
-export { voterAuthApp } from "./routes";
+export { voterAuthApp } from "./voter.routes";
