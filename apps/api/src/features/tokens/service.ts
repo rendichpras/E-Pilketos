@@ -44,13 +44,16 @@ export const tokenService = {
 
     const { tokens, total } = await tokenRepository.findByElection(electionId, query);
 
+    const totalPages = Math.max(1, Math.ceil(total / query.limit));
+
     return {
       election,
       tokens,
       pagination: {
         page: query.page,
         limit: query.limit,
-        total
+        total,
+        totalPages
       }
     };
   },

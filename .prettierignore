@@ -6,6 +6,7 @@ dist
 .drizzle-kit
 migrations
 *.log
+coverage
 
 # env
 .env

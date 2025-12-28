@@ -72,3 +72,5 @@ export type {
   PaginationQuery,
   TokenListQuery
 } from "@e-pilketos/validators";
+
+export { ERROR_CODES, type ErrorCode } from "@e-pilketos/types";

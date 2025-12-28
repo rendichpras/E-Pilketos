@@ -28,31 +28,33 @@ function fmtPercent(n: number) {
   return `${n.toFixed(1)}%`;
 }
 
-function TooltipContent({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload?.length) return null;
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: VotesChartDatum }[]; label?: string }) => {
+  if (active && payload && payload.length) {
+    const p = payload[0]?.payload as VotesChartDatum | undefined;
+    if (!p) return null;
 
-  const p = payload[0]?.payload as VotesChartDatum | undefined;
-  if (!p) return null;
-
-  return (
-    <div className="bg-popover text-popover-foreground w-[260px] rounded-lg border p-3 shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-muted-foreground text-xs">Paslon {p.number}</div>
-          <div className="truncate text-sm font-semibold">{p.name}</div>
+    return (
+      <div className="bg-popover text-popover-foreground w-[260px] rounded-lg border p-3 shadow-md">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-muted-foreground text-xs">Paslon {p.number}</div>
+            <div className="truncate text-sm font-semibold">{p.name}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-semibold">{fmtNumber(p.votes)}</div>
+            <div className="text-muted-foreground text-xs">{fmtPercent(p.percent)}</div>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-sm font-semibold">{fmtNumber(p.votes)}</div>
-          <div className="text-muted-foreground text-xs">{fmtPercent(p.percent)}</div>
-        </div>
+        <div className="text-muted-foreground mt-2 text-xs">Persentase dari total suara masuk.</div>
       </div>
-      <div className="text-muted-foreground mt-2 text-xs">Persentase dari total suara masuk.</div>
-    </div>
-  );
-}
+    );
+  }
+  return null;
+};
 
-function XTick(props: any) {
+const CustomizedAxisTick = (props: { x?: number; y?: number; payload?: { value: string } }) => {
   const { x, y, payload } = props;
+  if (x === undefined || y === undefined || !payload) return null;
   return (
     <text
       x={x}
@@ -70,8 +72,9 @@ function XTick(props: any) {
   );
 }
 
-function TopLabel(props: any) {
+function TopLabel(props: { x?: number; y?: number; width?: number; value?: number }) {
   const { x, y, width, value } = props;
+  if (x === undefined || y === undefined || width === undefined) return null;
   const v = Number(value ?? 0);
   if (!v) return null;
 
@@ -115,7 +118,7 @@ export function VotesBarChart({
                 dataKey="axis"
                 tickLine={{ stroke: "var(--border)" }}
                 axisLine={{ stroke: "var(--border)" }}
-                tick={<XTick />}
+                tick={<CustomizedAxisTick />}
                 interval={0}
               />
               <YAxis
@@ -127,7 +130,7 @@ export function VotesBarChart({
               />
               <Tooltip
                 cursor={{ fill: "color-mix(in oklch, var(--muted) 55%, transparent)" }}
-                content={<TooltipContent />}
+                content={<CustomTooltip />}
               />
               <Bar
                 dataKey="votes"

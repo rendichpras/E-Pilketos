@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "build": "tsc --noEmit",
     "start": "tsx src/index.ts",
     "test": "vitest",
     "test:run": "vitest run",

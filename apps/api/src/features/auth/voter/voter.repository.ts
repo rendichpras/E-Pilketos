@@ -1,6 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { elections, tokens, voterSessions } from "../../../db/schema";
+import { hashSessionToken } from "../../../core/security/session-token";
 
 export const voterRepository = {
   async findTokenWithElection(normalizedToken: string) {
@@ -18,18 +19,24 @@ export const voterRepository = {
     sessionToken: string;
     expiresAt: Date;
   }) {
+    const hashed = hashSessionToken(data.sessionToken);
     await db.transaction(async (tx) => {
       await tx.delete(voterSessions).where(eq(voterSessions.tokenId, data.tokenId));
-      await tx.insert(voterSessions).values(data);
+      await tx.insert(voterSessions).values({
+        ...data,
+        sessionToken: hashed
+      });
     });
   },
 
   async deleteSession(sessionToken: string) {
-    await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
+    const hashed = hashSessionToken(sessionToken);
+    await db.delete(voterSessions).where(eq(voterSessions.sessionToken, hashed));
   },
 
   async findValidSession(sessionToken: string) {
     const now = new Date();
+    const hashed = hashSessionToken(sessionToken);
     const [row] = await db
       .select({
         session: voterSessions,
@@ -37,7 +44,7 @@ export const voterRepository = {
       })
       .from(voterSessions)
       .innerJoin(elections, eq(voterSessions.electionId, elections.id))
-      .where(and(eq(voterSessions.sessionToken, sessionToken), gt(voterSessions.expiresAt, now)))
+      .where(and(eq(voterSessions.sessionToken, hashed), gt(voterSessions.expiresAt, now)))
       .limit(1);
     return row ?? null;
   },

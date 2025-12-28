@@ -17,7 +17,7 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet";
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@/lib/api/client";
 import type { PublicActiveElectionResponse } from "@/lib/types";
 
 const navLinks = [

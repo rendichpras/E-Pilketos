@@ -1,6 +1,8 @@
 import type { Context } from "hono";
 import type { AppEnv } from "../../app-env";
 import { isHttpError } from "../errors";
+import { ERROR_CODES, type ErrorCode } from "@e-pilketos/types";
+import { logger } from "../logger";
 
 type PgErr = {
   code?: string;
@@ -37,13 +39,30 @@ function safeMessage(status: ErrorStatus): string {
   }
 }
 
+function safeCode(status: ErrorStatus): ErrorCode {
+  switch (status) {
+    case 400:
+      return ERROR_CODES.BAD_REQUEST;
+    case 401:
+      return ERROR_CODES.UNAUTHORIZED;
+    case 403:
+      return ERROR_CODES.FORBIDDEN;
+    case 404:
+      return ERROR_CODES.NOT_FOUND;
+    case 409:
+      return ERROR_CODES.CONFLICT;
+    case 429:
+      return ERROR_CODES.TOO_MANY_REQUESTS;
+    default:
+      return ERROR_CODES.INTERNAL_ERROR;
+  }
+}
 export function onError(err: unknown, c: Context<AppEnv>): Response {
   const requestId = c.get("requestId");
 
   if (isHttpError(err)) {
-    console.error(
-      JSON.stringify({
-        level: "error",
+    logger.error(
+      {
         requestId,
         type: err.name,
         message: err.message,
@@ -51,7 +70,8 @@ export function onError(err: unknown, c: Context<AppEnv>): Response {
         statusCode: err.statusCode,
         path: c.req.path,
         method: c.req.method
-      })
+      },
+      "HttpError"
     );
 
     return c.json(
@@ -68,22 +88,22 @@ export function onError(err: unknown, c: Context<AppEnv>): Response {
 
   const zodErr = err as { name?: string; issues?: unknown[] };
   if (zodErr?.name === "ZodError" && Array.isArray(zodErr.issues)) {
-    console.error(
-      JSON.stringify({
-        level: "error",
+    logger.error(
+      {
         requestId,
         type: "ZodError",
         issues: zodErr.issues,
         path: c.req.path,
         method: c.req.method
-      })
+      },
+      "ZodError"
     );
 
     return c.json(
       {
         ok: false,
         error: "Validasi gagal",
-        code: "VALIDATION_ERROR",
+        code: ERROR_CODES.VALIDATION_ERROR,
         details: zodErr.issues,
         requestId
       },
@@ -94,32 +114,29 @@ export function onError(err: unknown, c: Context<AppEnv>): Response {
   const pgErr = err as PgErr;
   const status: ErrorStatus = pgErr?.code ? pickStatusFromPg(pgErr) : 500;
 
-  console.error(
-    JSON.stringify(
-      {
-        level: "error",
-        requestId,
-        message: (err as Error)?.message ?? String(err),
-        stack: (err as Error)?.stack,
-        pg: pgErr?.code
-          ? {
-              code: pgErr.code,
-              constraint: pgErr.constraint,
-              detail: pgErr.detail
-            }
-          : null,
-        path: c.req.path,
-        method: c.req.method
-      },
-      null,
-      2
-    )
+  logger.error(
+    {
+      requestId,
+      message: (err as Error)?.message ?? String(err),
+      stack: (err as Error)?.stack,
+      pg: pgErr?.code
+        ? {
+            code: pgErr.code,
+            constraint: pgErr.constraint,
+            detail: pgErr.detail
+          }
+        : null,
+      path: c.req.path,
+      method: c.req.method
+    },
+    "UnhandledError"
   );
 
   return c.json(
     {
       ok: false,
       error: safeMessage(status),
+      code: safeCode(status),
       requestId
     },
     status

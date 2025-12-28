@@ -1,6 +1,7 @@
 import { db } from "../../db/client";
 import { votingRepository, resultsRepository } from "./repository";
 import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../core/errors";
+import { ERROR_CODES } from "@e-pilketos/types";
 
 export const votingService = {
   async getCandidates(electionId: string) {
@@ -13,7 +14,10 @@ export const votingService = {
       !(election.startAt <= now && now <= election.endAt);
 
     if (isInactive) {
-      throw new BadRequestError("Pemilihan tidak aktif atau di luar jadwal", "ELECTION_INACTIVE");
+      throw new BadRequestError(
+        "Pemilihan tidak aktif atau di luar jadwal",
+        ERROR_CODES.ELECTION_INACTIVE
+      );
     }
 
     const candidates = await votingRepository.findActiveCandidates(electionId);
@@ -30,23 +34,26 @@ export const votingService = {
       !(election.startAt <= now && now <= election.endAt);
 
     if (isInactive) {
-      throw new BadRequestError("Pemilihan tidak aktif atau di luar jadwal", "ELECTION_INACTIVE");
+      throw new BadRequestError(
+        "Pemilihan tidak aktif atau di luar jadwal",
+        ERROR_CODES.ELECTION_INACTIVE
+      );
     }
 
     const isValidCandidate = await votingRepository.validateCandidate(candidatePairId, electionId);
     if (!isValidCandidate) {
-      throw new BadRequestError("Pasangan calon tidak valid", "CANDIDATE_INVALID");
+      throw new BadRequestError("Pasangan calon tidak valid", ERROR_CODES.CANDIDATE_INVALID);
     }
 
-    return db.transaction(async () => {
-      const tokenConsumed = await votingRepository.consumeToken(tokenId, electionId);
+    return db.transaction(async (tx) => {
+      const tokenConsumed = await votingRepository.consumeToken(tokenId, electionId, tx);
       if (!tokenConsumed) {
-        await votingRepository.deleteVoterSession(sessionToken);
-        throw new ConflictError("Token sudah digunakan", "TOKEN_USED");
+        await votingRepository.deleteVoterSession(sessionToken, tx);
+        throw new ConflictError("Token sudah digunakan", ERROR_CODES.TOKEN_USED);
       }
 
-      await votingRepository.recordVote(electionId, candidatePairId);
-      await votingRepository.deleteVoterSession(sessionToken);
+      await votingRepository.recordVote(electionId, candidatePairId, tx);
+      await votingRepository.deleteVoterSession(sessionToken, tx);
 
       return { success: true };
     });

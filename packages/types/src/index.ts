@@ -1,259 +1,271 @@
+import type { ErrorCode } from "./error-codes";
+export { ERROR_CODES } from "./error-codes";
+export type { ErrorCode } from "./error-codes";
+
 export type ElectionStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "ARCHIVED";
 export type TokenStatus = "UNUSED" | "USED" | "INVALIDATED";
 export type AdminRole = "SUPER_ADMIN" | "COMMITTEE";
 
 export const ELECTION_STATUS = {
-    DRAFT: "DRAFT",
-    ACTIVE: "ACTIVE",
-    CLOSED: "CLOSED",
-    ARCHIVED: "ARCHIVED",
+  DRAFT: "DRAFT",
+  ACTIVE: "ACTIVE",
+  CLOSED: "CLOSED",
+  ARCHIVED: "ARCHIVED"
 } as const;
 
 export const TOKEN_STATUS = {
-    UNUSED: "UNUSED",
-    USED: "USED",
-    INVALIDATED: "INVALIDATED",
+  UNUSED: "UNUSED",
+  USED: "USED",
+  INVALIDATED: "INVALIDATED"
 } as const;
 
 export const ADMIN_ROLE = {
-    SUPER_ADMIN: "SUPER_ADMIN",
-    COMMITTEE: "COMMITTEE",
+  SUPER_ADMIN: "SUPER_ADMIN",
+  COMMITTEE: "COMMITTEE"
 } as const;
 
 export interface Election {
-    id: string;
-    slug: string;
-    name: string;
-    description: string;
-    startAt: string;
-    endAt: string;
-    status: ElectionStatus;
-    isResultPublic: boolean;
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  startAt: string;
+  endAt: string;
+  status: ElectionStatus;
+  isResultPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CandidatePair {
-    id: string;
-    electionId: string;
-    number: number;
-    shortName: string;
-    ketuaName: string;
-    ketuaClass: string;
-    wakilName: string;
-    wakilClass: string;
-    photoUrl: string | null;
-    vision: string | null;
-    mission: string | null;
-    programs: string | null;
-    isActive: boolean;
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  electionId: string;
+  number: number;
+  shortName: string;
+  ketuaName: string;
+  ketuaClass: string;
+  wakilName: string;
+  wakilClass: string;
+  photoUrl: string | null;
+  vision: string | null;
+  mission: string | null;
+  programs: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Token {
-    id: string;
-    electionId: string;
-    token: string;
-    status: TokenStatus;
-    generatedBatch: string | null;
-    usedAt: string | null;
-    invalidatedAt: string | null;
-    createdAt: string;
+  id: string;
+  electionId: string;
+  token: string;
+  status: TokenStatus;
+  generatedBatch: string | null;
+  usedAt: string | null;
+  invalidatedAt: string | null;
+  createdAt: string;
 }
 
 export interface Admin {
-    id: string;
-    username: string;
-    role: AdminRole;
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  username: string;
+  role: AdminRole;
+}
+
+export interface AdminRecord extends Admin {
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type AdminUser = Admin;
 
 export interface AdminSession {
-    adminId: string;
-    username: string;
-    role: AdminRole;
+  adminId: string;
+  username: string;
+  role: AdminRole;
 }
 
 export interface VoterSession {
-    tokenId: string;
-    electionId: string;
+  tokenId: string;
+  electionId: string;
 }
 
 export interface Vote {
-    id: string;
-    electionId: string;
-    candidatePairId: string;
-    createdAt: string;
+  id: string;
+  electionId: string;
+  candidatePairId: string;
+  createdAt: string;
 }
 
 export interface AuditLog {
-    id: string;
-    adminId: string;
-    electionId: string | null;
-    action: string;
-    metadata: Record<string, unknown> | null;
-    createdAt: string;
+  id: string;
+  adminId: string;
+  electionId: string | null;
+  action: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 export interface Pagination {
-    page: number;
-    limit: number;
-    total: number;
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface ApiSuccessResponse<T> {
-    ok: true;
-    data: T;
+  ok: true;
+  data: T;
 }
 
 export interface ApiErrorResponse {
-    ok: false;
-    error: string;
-    code?: string;
-    details?: unknown;
-    requestId?: string;
+  ok: false;
+  error: string;
+  code?: ErrorCode;
+  details?: unknown;
+  requestId?: string;
 }
 
 export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 export interface PaginatedResponse<T> {
-    ok: true;
-    data: T[];
-    pagination: Pagination;
+  ok: true;
+  data: T[];
+  pagination: Pagination;
 }
 
 export interface PublicActiveElectionResponse {
-    activeElection: Election | null;
+  activeElection: Election | null;
 }
 
 export interface PublicLatestElectionResponse {
-    latestElection: Election | null;
+  latestElection: Election | null;
 }
 
 export interface PublicCandidatesResponse {
-    election: Election | null;
-    candidates: CandidatePair[];
+  election: Election | null;
+  candidates: CandidatePair[];
 }
 
 export interface VoterCandidatesResponse {
-    election: Election;
-    candidates: CandidatePair[];
+  election: Election;
+  candidates: CandidatePair[];
 }
 
 export interface AdminTokensListResponse {
-    election: Election;
-    tokens: Token[];
-    pagination: Pagination;
+  election: Election;
+  tokens: Token[];
+  pagination: Pagination;
 }
 
 export interface TokenGenerateResponse {
-    generated: number;
-    batch: string;
+  electionId: string;
+  createdCount: number;
+  batchLabel: string | null;
 }
 
 export interface ResultsRow {
-    candidate: CandidatePair;
-    voteCount: number;
+  candidate: CandidatePair;
+  voteCount: number;
 }
 
 export interface TokenStats {
-    used: number;
-    unused: number;
-    invalidated: number;
-    total: number;
+  used: number;
+  unused: number;
+  invalidated: number;
+  total: number;
 }
 
 export interface AdminResultsResponse {
-    election: Election;
-    totalVotes: number;
-    results: ResultsRow[];
-    tokenStats: TokenStats;
+  election: Election;
+  totalVotes: number;
+  results: ResultsRow[];
+  tokenStats: TokenStats;
 }
 
 export interface PublicResultsResponse {
-    election: Election | null;
-    totalVotes: number;
-    results: ResultsRow[];
+  election: Election | null;
+  totalVotes: number;
+  results: ResultsRow[];
 }
 
-export interface AdminLoginResponse {
-    admin: AdminSession;
+export interface AdminAuthResponse {
+  id: string;
+  username: string;
+  role: AdminRole;
 }
 
-export interface AdminMeResponse {
-    admin: AdminSession;
-}
+export type AdminLoginResponse = AdminAuthResponse;
+export type AdminMeResponse = AdminAuthResponse;
 
 export interface VoterLoginResponse {
-    success: boolean;
+  electionId: string;
+  electionSlug: string;
+  electionName: string;
 }
 
 export interface VoteResponse {
-    success: boolean;
+  success: boolean;
 }
 
 export interface CreateElectionDto {
-    slug: string;
-    name: string;
-    description: string;
-    startAt: string;
-    endAt: string;
-    isResultPublic?: boolean;
+  slug: string;
+  name: string;
+  description: string;
+  startAt: string;
+  endAt: string;
+  isResultPublic?: boolean;
 }
 
 export interface UpdateElectionDto {
-    name?: string;
-    description?: string;
-    startAt?: string;
-    endAt?: string;
+  name?: string;
+  description?: string;
+  startAt?: string;
+  endAt?: string;
 }
 
 export interface CreateCandidateDto {
-    number: number;
-    shortName: string;
-    ketuaName: string;
-    ketuaClass: string;
-    wakilName: string;
-    wakilClass: string;
-    photoUrl?: string | null;
-    vision?: string | null;
-    mission?: string | null;
-    programs?: string | null;
-    isActive?: boolean;
+  number: number;
+  shortName: string;
+  ketuaName: string;
+  ketuaClass: string;
+  wakilName: string;
+  wakilClass: string;
+  photoUrl?: string | null;
+  vision?: string | null;
+  mission?: string | null;
+  programs?: string | null;
+  isActive?: boolean;
 }
 
 export interface UpdateCandidateDto {
-    number?: number;
-    shortName?: string;
-    ketuaName?: string;
-    ketuaClass?: string;
-    wakilName?: string;
-    wakilClass?: string;
-    photoUrl?: string | null;
-    vision?: string | null;
-    mission?: string | null;
-    programs?: string | null;
-    isActive?: boolean;
+  number?: number;
+  shortName?: string;
+  ketuaName?: string;
+  ketuaClass?: string;
+  wakilName?: string;
+  wakilClass?: string;
+  photoUrl?: string | null;
+  vision?: string | null;
+  mission?: string | null;
+  programs?: string | null;
+  isActive?: boolean;
 }
 
 export interface GenerateTokensDto {
-    count: number;
-    batch?: string;
+  count: number;
+  batch?: string;
 }
 
 export interface AdminLoginDto {
-    username: string;
-    password: string;
+  username: string;
+  password: string;
 }
 
 export interface VoterLoginDto {
-    token: string;
+  token: string;
 }
 
 export interface VoteDto {
-    candidatePairId: string;
+  candidatePairId: string;
 }

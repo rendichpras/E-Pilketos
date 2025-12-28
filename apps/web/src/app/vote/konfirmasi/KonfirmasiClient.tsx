@@ -3,14 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { apiClient, ApiError } from "@/lib/api-client";
-import type { PublicCandidatesResponse, CandidatePair, Election } from "@/lib/types";
+import { ApiError } from "@/lib/api/client";
+import { voterApi } from "@/lib/api/voter";
+import { ERROR_CODES } from "@/lib/types";
+import type { CandidatePair, Election } from "@/lib/types";
 
 import { VoteShell } from "@/components/vote/vote-shell";
 import { ElectionInfo } from "@/components/vote/election-info";
 import { VoteReasonAlert } from "@/components/vote/vote-reason-alert";
 
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import Image from "next/image";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,12 +118,12 @@ function CandidateDetailDrawer({
             <div className="grid gap-4 md:grid-cols-[220px_1fr]">
               <AspectRatio ratio={3 / 4} className="bg-muted/40 overflow-hidden rounded-lg border">
                 {photoUrl ? (
-                  <img
+                  <Image
                     src={photoUrl}
                     alt={`Foto ${title}`}
-                    className="h-full w-full object-cover object-top"
-                    loading="lazy"
-                    decoding="async"
+                    fill
+                    className="object-cover object-top"
+                    unoptimized
                   />
                 ) : (
                   <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
@@ -234,7 +237,7 @@ export default function KonfirmasiClient() {
       }
 
       try {
-        const data = await apiClient.get<PublicCandidatesResponse>("/voter/candidates");
+        const data = await voterApi.getCandidates();
         if (cancelled) return;
 
         const found = data.candidates.find((c) => c.id === candidateId);
@@ -286,12 +289,12 @@ export default function KonfirmasiClient() {
     setState((prev) => ({ ...prev, submitting: true, error: null }));
 
     try {
-      await apiClient.post("/voter/vote", { candidatePairId: state.candidate.id });
+      await voterApi.vote(state.candidate.id);
       router.replace("/vote/sukses");
     } catch (err: unknown) {
       const isApiError = err instanceof ApiError;
       const msg: string = isApiError ? err.message : "";
-      const code: string | undefined = isApiError ? err.code : undefined;
+      const code = isApiError ? err.code : undefined;
       const status = isApiError ? err.status : 0;
 
       if (status === 401) {
@@ -299,18 +302,12 @@ export default function KonfirmasiClient() {
         return;
       }
 
-      if (
-        code === "TOKEN_USED" ||
-        (status === 400 && msg.toLowerCase().includes("token sudah digunakan"))
-      ) {
+      if (code === ERROR_CODES.TOKEN_USED) {
         router.replace("/vote/sukses?reason=token_used");
         return;
       }
 
-      if (
-        code === "INVALID_CANDIDATE" ||
-        (status === 400 && msg.toLowerCase().includes("pasangan calon tidak valid"))
-      ) {
+      if (code === ERROR_CODES.CANDIDATE_INVALID) {
         router.replace("/vote/surat-suara?reason=invalid_choice");
         return;
       }
@@ -423,12 +420,12 @@ export default function KonfirmasiClient() {
               className="bg-muted/40 overflow-hidden rounded-xl border shadow-sm"
             >
               {photoUrl ? (
-                <img
+                <Image
                   src={photoUrl}
                   alt={`Foto ${title}`}
-                  className="h-full w-full object-cover object-top"
-                  loading="lazy"
-                  decoding="async"
+                  fill
+                  className="object-cover object-top"
+                  unoptimized
                 />
               ) : (
                 <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">

@@ -14,22 +14,17 @@ import {
 
 describe("HttpError", () => {
   it("creates error with correct properties", () => {
-    const error = new HttpError(400, "Test error", "TEST_CODE", { field: "value" });
+    const error = new HttpError(400, "Test error", "BAD_REQUEST", { field: "value" });
 
     expect(error.statusCode).toBe(400);
     expect(error.message).toBe("Test error");
-    expect(error.code).toBe("TEST_CODE");
+    expect(error.code).toBe("BAD_REQUEST");
     expect(error.details).toEqual({ field: "value" });
     expect(error.name).toBe("HttpError");
   });
 
-  it("defaults code to ERROR if not provided", () => {
-    const error = new HttpError(500, "Test error");
-    expect(error.code).toBe("ERROR");
-  });
-
   it("extends Error", () => {
-    const error = new HttpError(400, "Test");
+    const error = new HttpError(400, "Test", "BAD_REQUEST");
     expect(error instanceof Error).toBe(true);
   });
 });
@@ -42,8 +37,8 @@ describe("BadRequestError", () => {
   });
 
   it("uses custom code if provided", () => {
-    const error = new BadRequestError("Bad request", "CUSTOM_CODE");
-    expect(error.code).toBe("CUSTOM_CODE");
+    const error = new BadRequestError("Bad request", "VALIDATION_ERROR");
+    expect(error.code).toBe("VALIDATION_ERROR");
   });
 });
 
@@ -99,8 +94,8 @@ describe("ConflictError", () => {
   });
 
   it("uses custom code if provided", () => {
-    const error = new ConflictError("Already exists", "DUPLICATE");
-    expect(error.code).toBe("DUPLICATE");
+    const error = new ConflictError("Already exists", "TOKEN_USED");
+    expect(error.code).toBe("TOKEN_USED");
   });
 });
 
@@ -122,7 +117,7 @@ describe("InternalServerError", () => {
 
 describe("isHttpError", () => {
   it("returns true for HttpError instances", () => {
-    expect(isHttpError(new HttpError(400, "test"))).toBe(true);
+    expect(isHttpError(new HttpError(400, "test", "BAD_REQUEST"))).toBe(true);
     expect(isHttpError(new BadRequestError("test"))).toBe(true);
     expect(isHttpError(new NotFoundError("User"))).toBe(true);
   });

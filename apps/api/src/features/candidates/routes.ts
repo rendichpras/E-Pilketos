@@ -3,6 +3,7 @@ import type { AppEnv } from "../../app-env";
 import { adminAuth } from "../auth/admin/auth.middleware";
 import { candidateService } from "./service";
 import { success, created, noContent } from "../../core/response";
+import { validateBody } from "../../core/validation";
 import { createCandidateSchema, updateCandidateSchema } from "@e-pilketos/validators";
 
 export const adminCandidatesApp = new Hono<AppEnv>();
@@ -18,23 +19,9 @@ adminCandidatesApp.get("/election/:electionId", async (c) => {
 
 adminCandidatesApp.post("/election/:electionId", async (c) => {
   const { electionId } = c.req.param();
-  const body = await c.req.json().catch(() => null);
-  const parsed = createCandidateSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return c.json(
-      {
-        ok: false,
-        error: "Validasi gagal",
-        code: "VALIDATION_ERROR",
-        details: parsed.error.flatten()
-      },
-      400
-    );
-  }
+  const data = await validateBody(c, createCandidateSchema);
 
   const admin = c.get("admin")!;
-  const data = parsed.data;
 
   const candidate = await candidateService.create(
     {
@@ -59,23 +46,9 @@ adminCandidatesApp.post("/election/:electionId", async (c) => {
 
 adminCandidatesApp.put("/:id", async (c) => {
   const { id } = c.req.param();
-  const body = await c.req.json().catch(() => null);
-  const parsed = updateCandidateSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return c.json(
-      {
-        ok: false,
-        error: "Validasi gagal",
-        code: "VALIDATION_ERROR",
-        details: parsed.error.flatten()
-      },
-      400
-    );
-  }
+  const data = await validateBody(c, updateCandidateSchema);
 
   const admin = c.get("admin")!;
-  const data = parsed.data;
 
   const candidate = await candidateService.update(
     id,

@@ -7,6 +7,8 @@ import { secureHeaders } from "hono/secure-headers";
 import { env } from "./env";
 import type { AppEnv } from "./app-env";
 import { logger } from "./core/logger";
+import { closeDb } from "./db/client";
+import { quitRedis } from "./utils/redis";
 
 import { requestId, onError, originGuard, loggerMiddleware } from "./core/middleware";
 
@@ -86,7 +88,7 @@ app.route("/public/elections", publicElectionsApp);
 app.route("/public/candidates", publicCandidatesApp);
 app.route("/public/results", publicResultsApp);
 
-serve(
+const server = serve(
   {
     fetch: app.fetch,
     port: env.PORT
@@ -95,5 +97,40 @@ serve(
     logger.info(`E-Pilketos API running on http://localhost:${info.port}/api/v1/health`);
   }
 );
+
+let shuttingDown = false;
+
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  logger.info({ signal }, "Shutting down...");
+
+  try {
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+    logger.info("Server closed");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to close server");
+  }
+
+  try {
+    await quitRedis();
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to quit Redis");
+  }
+
+  try {
+    await closeDb();
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to close DB pool");
+  }
+
+  process.exit(0);
+}
+
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
 export default app;

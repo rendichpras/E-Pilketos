@@ -6,8 +6,10 @@ import { adminAuthService } from "./auth.service";
 import { env } from "../../../env";
 import { rateLimit, getClientIp, rateLimitConfig } from "../../../core/middleware";
 import { success } from "../../../core/response";
+import { UnauthorizedError } from "../../../core/errors";
 import { validateBody } from "../../../core/validation";
 import { adminLoginSchema } from "@e-pilketos/validators";
+import { ERROR_CODES } from "@e-pilketos/types";
 
 export const adminAuthApp = new Hono<AppEnv>();
 
@@ -51,9 +53,8 @@ adminAuthApp.post("/logout", async (c) => {
 
 adminAuthApp.get("/me", adminAuth, async (c) => {
   const adminPayload = c.get("admin");
-
   if (!adminPayload) {
-    return c.json({ ok: false, error: "Tidak terautentikasi", code: "UNAUTHORIZED" }, 401);
+    throw new UnauthorizedError("Tidak terautentikasi", ERROR_CODES.UNAUTHORIZED);
   }
 
   const admin = await adminAuthService.getMe(adminPayload.adminId);

@@ -8,6 +8,9 @@ import { success, created } from "../../core/response";
 import { rateLimit, getClientIp, rateLimitConfig } from "../../core/middleware";
 import { env as appEnv } from "../../env";
 import { voteSchema } from "@e-pilketos/validators";
+import { validateBody } from "../../core/validation";
+import { isHttpError, UnauthorizedError } from "../../core/errors";
+import { ERROR_CODES } from "@e-pilketos/types";
 
 export const voterApp = new Hono<AppEnv>();
 export const adminResultsApp = new Hono<AppEnv>();
@@ -17,9 +20,7 @@ voterApp.use("/*", voterAuth);
 
 voterApp.get("/candidates", async (c) => {
   const voter = c.get("voter");
-  if (!voter) {
-    return c.json({ ok: false, error: "Tidak terautentikasi", code: "UNAUTHORIZED" }, 401);
-  }
+  if (!voter) throw new UnauthorizedError("Tidak terautentikasi", ERROR_CODES.UNAUTHORIZED);
 
   const result = await votingService.getCandidates(voter.electionId);
   return success(c, result);
@@ -32,40 +33,34 @@ voterApp.post(
     max: appEnv.RATE_LIMIT_VOTE_MAX,
     prefix: rateLimitConfig.vote.prefix,
     id: (c) => {
-      const v = c.get("voter") as any;
+      const v = c.get("voter");
       return v?.tokenId ? String(v.tokenId) : getClientIp(c);
     }
   }),
   async (c) => {
     const voter = c.get("voter");
-    if (!voter) {
-      return c.json({ ok: false, error: "Tidak terautentikasi", code: "UNAUTHORIZED" }, 401);
-    }
+    if (!voter) throw new UnauthorizedError("Tidak terautentikasi", ERROR_CODES.UNAUTHORIZED);
 
-    const body = await c.req.json().catch(() => null);
-    const parsed = voteSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return c.json(
-        {
-          ok: false,
-          error: "Validasi gagal",
-          code: "VALIDATION_ERROR",
-          details: parsed.error.flatten()
-        },
-        400
-      );
-    }
+    const { candidatePairId } = await validateBody(c, voteSchema);
 
     const { sessionToken, tokenId, electionId } = voter;
-    const { candidatePairId } = parsed.data;
 
     try {
       await votingService.vote(tokenId, electionId, sessionToken, candidatePairId);
+
       deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+
       return created(c, { success: true });
-    } catch (e: any) {
-      deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+    } catch (e: unknown) {
+      if (
+        isHttpError(e) &&
+        (e.code === ERROR_CODES.TOKEN_USED ||
+          e.code === ERROR_CODES.TOKEN_INVALID ||
+          e.code === ERROR_CODES.SESSION_EXPIRED)
+      ) {
+        deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+      }
+
       throw e;
     }
   }

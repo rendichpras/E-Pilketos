@@ -1,6 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { admins, adminSessions } from "../../../db/schema";
+import { hashSessionToken } from "../../../core/security/session-token";
 
 export const adminRepository = {
   async findByUsername(username: string) {
@@ -14,19 +15,22 @@ export const adminRepository = {
   },
 
   async createSession(adminId: string, sessionToken: string, expiresAt: Date) {
+    const hashed = hashSessionToken(sessionToken);
     await db.insert(adminSessions).values({
       adminId,
-      sessionToken,
+      sessionToken: hashed,
       expiresAt
     });
   },
 
   async deleteSession(sessionToken: string) {
-    await db.delete(adminSessions).where(eq(adminSessions.sessionToken, sessionToken));
+    const hashed = hashSessionToken(sessionToken);
+    await db.delete(adminSessions).where(eq(adminSessions.sessionToken, hashed));
   },
 
   async findValidSession(sessionToken: string) {
     const now = new Date();
+    const hashed = hashSessionToken(sessionToken);
     const [row] = await db
       .select({
         session: adminSessions,
@@ -34,7 +38,7 @@ export const adminRepository = {
       })
       .from(adminSessions)
       .innerJoin(admins, eq(adminSessions.adminId, admins.id))
-      .where(and(eq(adminSessions.sessionToken, sessionToken), gt(adminSessions.expiresAt, now)))
+      .where(and(eq(adminSessions.sessionToken, hashed), gt(adminSessions.expiresAt, now)))
       .limit(1);
     return row ?? null;
   }

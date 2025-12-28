@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { apiClient } from "@/lib/api-client";
+import { adminApi } from "@/lib/api";
 import type { AdminUser } from "@/lib/types";
 import { AdminProvider } from "./admin-context";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -33,7 +33,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
     async function resolveSession() {
       try {
-        const me = await apiClient.get<AdminUser>("/admin/auth/me");
+        const me = await adminApi.me();
         if (!cancelled) {
           setAdmin(me);
         }
@@ -57,7 +57,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   async function handleLogout() {
     try {
-      await apiClient.post("/admin/auth/logout", {});
+      await adminApi.logout();
     } finally {
       router.replace("/admin/login");
     }

@@ -1,62 +1,13 @@
 import "server-only";
 import { cookies } from "next/headers";
+import type { ApiResponse } from "@e-pilketos/types";
+import { ApiError, parseApiResponse } from "./shared";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000/api/v1";
 
-export type ServerApiResponse<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code?: string; details?: unknown };
+export type ServerApiResponse<T> = ApiResponse<T>;
 
-export class ServerApiError extends Error {
-  status: number;
-  code?: string;
-  details?: unknown;
-
-  constructor(message: string, status: number, code?: string, details?: unknown) {
-    super(message);
-    this.name = "ServerApiError";
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
-
-interface ApiErrorData {
-  error?: string;
-  code?: string;
-  details?: unknown;
-}
-
-function isApiErrorData(data: unknown): data is ApiErrorData {
-  return typeof data === "object" && data !== null;
-}
-
-async function parseResponse<T>(res: Response): Promise<T> {
-  const text = await res.text();
-  let data: unknown = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!res.ok) {
-    const errorData = isApiErrorData(data) ? data : {};
-    throw new ServerApiError(
-      errorData.error ?? `Request failed with status ${res.status}`,
-      res.status,
-      errorData.code,
-      errorData.details
-    );
-  }
-
-  if (data && typeof data === "object" && "ok" in data && data.ok === true && "data" in data) {
-    return data.data as T;
-  }
-
-  return data as T;
-}
+export { ApiError as ServerApiError };
 
 export async function serverGet<T>(
   path: string,
@@ -76,7 +27,7 @@ export async function serverGet<T>(
     next: options.revalidate !== undefined ? { revalidate: options.revalidate } : undefined
   });
 
-  return parseResponse<T>(res);
+  return parseApiResponse<T>(res);
 }
 
 export async function serverPost<T>(path: string, body?: unknown): Promise<T> {
@@ -93,7 +44,7 @@ export async function serverPost<T>(path: string, body?: unknown): Promise<T> {
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
 
-  return parseResponse<T>(res);
+  return parseApiResponse<T>(res);
 }
 
 export async function serverPut<T>(path: string, body?: unknown): Promise<T> {
@@ -110,7 +61,7 @@ export async function serverPut<T>(path: string, body?: unknown): Promise<T> {
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
 
-  return parseResponse<T>(res);
+  return parseApiResponse<T>(res);
 }
 
 export async function serverDelete<T>(path: string): Promise<T> {
@@ -126,7 +77,7 @@ export async function serverDelete<T>(path: string): Promise<T> {
     credentials: "include"
   });
 
-  return parseResponse<T>(res);
+  return parseApiResponse<T>(res);
 }
 
 export async function publicGet<T>(
@@ -142,5 +93,5 @@ export async function publicGet<T>(
     next: options.revalidate !== undefined ? { revalidate: options.revalidate } : undefined
   });
 
-  return parseResponse<T>(res);
+  return parseApiResponse<T>(res);
 }

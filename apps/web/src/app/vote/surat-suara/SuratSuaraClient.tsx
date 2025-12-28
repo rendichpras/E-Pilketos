@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
-import { apiClient } from "@/lib/api-client";
+import { ApiError } from "@/lib/api/client";
+import { voterApi } from "@/lib/api/voter";
 import { cn } from "@/lib/cn";
-import type { CandidatePair, Election, PublicCandidatesResponse } from "@/lib/types";
+import type { CandidatePair, Election } from "@/lib/types";
 import { saveVoteSelection } from "@/lib/vote-selection";
 
 import { ElectionInfo } from "@/components/vote/election-info";
@@ -130,12 +132,12 @@ function CandidateDetailDrawer({
             <div className="grid gap-4 md:grid-cols-[200px_1fr]">
               <AspectRatio ratio={3 / 4} className="bg-muted/40 overflow-hidden rounded-lg border">
                 {candidate.photoUrl ? (
-                  <img
+                  <Image
                     src={candidate.photoUrl}
                     alt={`Foto ${candidate.shortName}`}
                     className="h-full w-full object-cover object-top"
-                    loading="lazy"
-                    decoding="async"
+                    fill
+                    unoptimized
                   />
                 ) : (
                   <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
@@ -253,12 +255,12 @@ function CandidateCard({
       <CardContent className="p-0">
         <AspectRatio ratio={3 / 4} className="bg-muted/40">
           {candidate.photoUrl ? (
-            <img
+            <Image
               src={candidate.photoUrl}
               alt={`Foto ${candidate.shortName}`}
               className="h-full w-full object-cover object-top"
-              loading="lazy"
-              decoding="async"
+              fill
+              unoptimized
             />
           ) : (
             <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">
@@ -363,7 +365,7 @@ export default function VoteSuratSuaraClient() {
 
     async function load() {
       try {
-        const data = await apiClient.get<PublicCandidatesResponse>("/voter/candidates");
+        const data = await voterApi.getCandidates();
         if (cancelled) return;
 
         setState((prev) => ({
@@ -373,10 +375,10 @@ export default function VoteSuratSuaraClient() {
           candidates: data.candidates,
           error: null
         }));
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (cancelled) return;
 
-        if (err?.status === 401) {
+        if (err instanceof ApiError && err.status === 401) {
           router.replace("/vote?reason=session_expired");
           return;
         }
@@ -384,7 +386,8 @@ export default function VoteSuratSuaraClient() {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: err?.data?.error ?? "Gagal memuat data."
+          error:
+            err instanceof ApiError ? err.message || "Gagal memuat data." : "Gagal memuat data."
         }));
       }
     }

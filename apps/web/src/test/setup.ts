@@ -20,7 +20,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/image", () => ({
-  default: function MockImage(props: Record<string, unknown>) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  default: function MockImage(_props: Record<string, unknown>) {
     return null;
   }
 }));
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function Wrapper({ children: _children }: { children: React.ReactNode }) {
+  return null;
+}

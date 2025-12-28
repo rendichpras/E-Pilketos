@@ -6,12 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "format": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --write",
-    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check"
+    "format": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --plugin prettier-plugin-tailwindcss --write",
+    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --plugin prettier-plugin-tailwindcss --check"
   },
   "dependencies": {
     "@e-pilketos/types": "workspace:*",

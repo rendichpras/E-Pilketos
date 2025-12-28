@@ -4,7 +4,8 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-import { apiClient } from "@/lib/api-client";
+import { ApiError } from "@/lib/api/client";
+import { adminApi } from "@/lib/api/admin";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,13 +51,13 @@ export default function AdminLoginPage() {
 
     setSubmitting(true);
     try {
-      await apiClient.post("/admin/auth/login", {
-        username,
-        password
-      });
+      await adminApi.login({ username, password });
       router.replace("/admin/dashboard");
-    } catch (err: any) {
-      const message = err?.data?.error ?? "Gagal login. Periksa kembali username dan password.";
+    } catch (err: unknown) {
+      const message =
+        err instanceof ApiError
+          ? err.message || "Gagal login. Periksa kembali username dan password."
+          : "Gagal login. Periksa kembali username dan password.";
       setError(message);
     } finally {
       setSubmitting(false);

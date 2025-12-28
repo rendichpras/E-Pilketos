@@ -5,15 +5,19 @@ import type { AppEnv } from "../../app-env";
 import { db } from "../../db/client";
 import { voterSessions, tokens } from "../../db/schema";
 import { env as appEnv } from "../../env";
+import { ERROR_CODES } from "@e-pilketos/types";
+import { ConflictError, UnauthorizedError } from "../../core/errors";
+import { hashSessionToken } from "../../core/security/session-token";
 
 export async function voterAuth(c: Context<AppEnv>, next: Next) {
   const sessionToken = getCookie(c, "voter_session");
 
   if (!sessionToken) {
-    return c.json({ ok: false, error: "Tidak terautentikasi", code: "UNAUTHORIZED" }, 401);
+    throw new UnauthorizedError("Tidak terautentikasi", ERROR_CODES.UNAUTHORIZED);
   }
 
   const now = new Date();
+  const sessionTokenHash = hashSessionToken(sessionToken);
 
   const [row] = await db
     .select({
@@ -22,33 +26,22 @@ export async function voterAuth(c: Context<AppEnv>, next: Next) {
     })
     .from(voterSessions)
     .innerJoin(tokens, eq(voterSessions.tokenId, tokens.id))
-    .where(and(eq(voterSessions.sessionToken, sessionToken), gt(voterSessions.expiresAt, now)))
+    .where(and(eq(voterSessions.sessionToken, sessionTokenHash), gt(voterSessions.expiresAt, now)))
     .limit(1);
 
   if (!row) {
-    await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
+    await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionTokenHash));
     deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
-    return c.json(
-      {
-        ok: false,
-        error: "Sesi tidak valid atau sudah kadaluarsa",
-        code: "SESSION_EXPIRED"
-      },
-      401
+    throw new UnauthorizedError(
+      "Sesi tidak valid atau sudah kadaluarsa",
+      ERROR_CODES.SESSION_EXPIRED
     );
   }
 
   if (row.token.status !== "UNUSED") {
-    await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionToken));
+    await db.delete(voterSessions).where(eq(voterSessions.sessionToken, sessionTokenHash));
     deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
-    return c.json(
-      {
-        ok: false,
-        error: "Token sudah digunakan",
-        code: "TOKEN_USED"
-      },
-      409
-    );
+    throw new ConflictError("Token sudah digunakan", ERROR_CODES.TOKEN_USED);
   }
 
   c.set("voter", {

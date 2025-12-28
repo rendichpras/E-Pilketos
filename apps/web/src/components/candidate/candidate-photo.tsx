@@ -1,4 +1,5 @@
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import Image from "next/image";
 
 type CandidatePhotoProps = {
   photoUrl: string | null | undefined;
@@ -13,12 +14,12 @@ export function CandidatePhoto({ photoUrl, name, className }: CandidatePhotoProp
       className={`bg-muted/40 overflow-hidden rounded-lg border ${className ?? ""}`}
     >
       {photoUrl ? (
-        <img
+        <Image
           src={photoUrl}
           alt={`Foto ${name}`}
-          className="h-full w-full object-cover object-top"
-          loading="lazy"
-          decoding="async"
+          fill
+          className="object-cover object-top"
+          unoptimized
         />
       ) : (
         <div className="text-muted-foreground flex h-full w-full items-center justify-center text-xs">

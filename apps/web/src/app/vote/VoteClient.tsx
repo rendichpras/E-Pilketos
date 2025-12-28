@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { apiClient } from "@/lib/api-client";
+import { ApiError } from "@/lib/api/client";
+import { voterApi } from "@/lib/api/voter";
+import { ERROR_CODES } from "@/lib/types";
 
 import { VoteShell } from "@/components/vote/vote-shell";
 import { VoteReasonAlert } from "@/components/vote/vote-reason-alert";
@@ -22,13 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { AlertCircle, Loader2, LockKeyhole } from "lucide-react";
-
-type TokenLoginResponse = {
-  electionId: string;
-  electionSlug: string;
-  electionName: string;
-};
+import { AlertCircle, Loader2 } from "lucide-react";
 
 function formatToken(raw: string) {
   const cleaned = raw
@@ -45,7 +41,6 @@ function isTokenComplete(value: string) {
 
 export default function VoteClient() {
   const router = useRouter();
-  const sp = useSearchParams();
 
   const [token, setToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -53,9 +48,7 @@ export default function VoteClient() {
 
   const ready = useMemo(() => isTokenComplete(token), [token]);
 
-  useEffect(() => {
-    setError(null);
-  }, [sp]);
+
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,37 +58,43 @@ export default function VoteClient() {
     setError(null);
 
     try {
-      await apiClient.post<TokenLoginResponse>("/auth/token-login", { token });
+      await voterApi.login(token);
       router.replace("/vote/surat-suara");
-    } catch (err: any) {
-      const msg: string = err?.data?.error ?? "";
-      const code: string | undefined = err?.data?.code;
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        const status = err.status;
+        const code = err.code;
 
-      if (err?.status === 401 || code === "TOKEN_INVALID") {
-        router.replace("/vote?reason=invalid_token");
+        if (status === 401 || code === ERROR_CODES.TOKEN_INVALID) {
+          router.replace("/vote?reason=invalid_token");
+          setSubmitting(false);
+          return;
+        }
+
+        if (status === 409 && code === ERROR_CODES.TOKEN_USED) {
+          router.replace("/vote?reason=token_used");
+          setSubmitting(false);
+          return;
+        }
+
+        if (status === 400 && code === ERROR_CODES.ELECTION_INACTIVE) {
+          router.replace("/vote?reason=election_inactive");
+          setSubmitting(false);
+          return;
+        }
+
+        if (status === 409 && code === ERROR_CODES.TOKEN_AMBIGUOUS) {
+          router.replace("/vote?reason=token_ambiguous");
+          setSubmitting(false);
+          return;
+        }
+
+        setError(err.message || "Gagal memverifikasi token.");
         setSubmitting(false);
         return;
       }
 
-      if (err?.status === 409 && code === "TOKEN_USED") {
-        router.replace("/vote?reason=token_used");
-        setSubmitting(false);
-        return;
-      }
-
-      if (err?.status === 400 && code === "ELECTION_INACTIVE") {
-        router.replace("/vote?reason=election_inactive");
-        setSubmitting(false);
-        return;
-      }
-
-      if (err?.status === 409 && code === "TOKEN_AMBIGUOUS") {
-        router.replace("/vote?reason=token_ambiguous");
-        setSubmitting(false);
-        return;
-      }
-
-      setError(msg || "Gagal memverifikasi token.");
+      setError("Gagal memverifikasi token.");
       setSubmitting(false);
     }
   }

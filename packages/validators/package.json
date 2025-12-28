@@ -8,12 +8,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier \"src/**/*.{ts,tsx,js,jsx,json,md,mdx}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --write",
+    "format:check": "prettier \"src/**/*.{ts,tsx,js,jsx,json,md,mdx}\" --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check"
   },
   "dependencies": {
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "prettier": "^3.7.4"
   }
 }

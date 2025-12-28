@@ -4,6 +4,7 @@ import { adminAuth } from "../auth/admin/auth.middleware";
 import { requireRole } from "../auth/admin/require-role";
 import { electionService } from "./service";
 import { success, created } from "../../core/response";
+import { validateBody } from "../../core/validation";
 import { createElectionSchema, updateElectionSchema } from "@e-pilketos/validators";
 
 export const adminElectionsApp = new Hono<AppEnv>();
@@ -22,23 +23,9 @@ adminElectionsApp.get("/:id", async (c) => {
 });
 
 adminElectionsApp.post("/", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  const parsed = createElectionSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return c.json(
-      {
-        ok: false,
-        error: "Validasi gagal",
-        code: "VALIDATION_ERROR",
-        details: parsed.error.flatten()
-      },
-      400
-    );
-  }
+  const data = await validateBody(c, createElectionSchema);
 
   const admin = c.get("admin")!;
-  const data = parsed.data;
 
   const election = await electionService.create(
     {
@@ -57,23 +44,9 @@ adminElectionsApp.post("/", async (c) => {
 
 adminElectionsApp.put("/:id", async (c) => {
   const { id } = c.req.param();
-  const body = await c.req.json().catch(() => null);
-  const parsed = updateElectionSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return c.json(
-      {
-        ok: false,
-        error: "Validasi gagal",
-        code: "VALIDATION_ERROR",
-        details: parsed.error.flatten()
-      },
-      400
-    );
-  }
+  const data = await validateBody(c, updateElectionSchema);
 
   const admin = c.get("admin")!;
-  const data = parsed.data;
 
   const election = await electionService.update(
     id,

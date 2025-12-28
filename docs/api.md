@@ -351,6 +351,7 @@ Query params:
 - `limit` (default: 20, max: 100)
 - `status` - filter: UNUSED, USED, INVALIDATED
 - `batch` - filter by batch label
+- `q` - pencarian (partial match) pada token atau batch label
 
 Token yang USED/INVALIDATED akan di-redact (diganti jadi `USED-XXXX` atau `INV-XXXX`).
 

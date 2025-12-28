@@ -1,67 +1,9 @@
+import type { ApiResponse } from "@e-pilketos/types";
 import { API_BASE_URL } from "../config";
+import { ApiError, parseApiResponse } from "./shared";
 
-export type ApiResponse<T> =
-  | {
-      ok: true;
-      data: T;
-    }
-  | {
-      ok: false;
-      error: string;
-      code?: string;
-      details?: unknown;
-    };
-
-export class ApiError extends Error {
-  status: number;
-  code?: string;
-  details?: unknown;
-
-  constructor(message: string, status: number, code?: string, details?: unknown) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
-
-interface ApiErrorData {
-  error?: string;
-  code?: string;
-  details?: unknown;
-}
-
-function isApiErrorData(data: unknown): data is ApiErrorData {
-  return typeof data === "object" && data !== null;
-}
-
-async function parseResponse<T>(res: Response): Promise<T> {
-  const text = await res.text();
-  let data: unknown = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!res.ok) {
-    const errorData = isApiErrorData(data) ? data : {};
-    throw new ApiError(
-      errorData.error ?? `Request failed with status ${res.status}`,
-      res.status,
-      errorData.code,
-      errorData.details
-    );
-  }
-
-  if (data && typeof data === "object" && "ok" in data && data.ok === true && "data" in data) {
-    return data.data as T;
-  }
-
-  return data as T;
-}
+export type { ApiResponse };
+export { ApiError };
 
 class ApiClient {
   async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -74,7 +16,7 @@ class ApiClient {
       credentials: "include"
     });
 
-    return parseResponse<T>(res);
+    return parseApiResponse<T>(res);
   }
 
   get<T>(path: string): Promise<T> {

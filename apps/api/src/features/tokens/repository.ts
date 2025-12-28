@@ -1,4 +1,4 @@
-import { asc, and, eq, sql } from "drizzle-orm";
+import { SQL, asc, and, eq, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "../../db/client";
 import { elections, tokens, auditLogs, voterSessions } from "../../db/schema";
@@ -9,6 +9,7 @@ export type TokenStatus = "UNUSED" | "USED" | "INVALIDATED";
 export type ListTokensQuery = {
   status?: TokenStatus;
   batch?: string;
+  q?: string;
   page: number;
   limit: number;
 };
@@ -28,12 +29,16 @@ export const tokenRepository = {
   },
 
   async findByElection(electionId: string, query: ListTokensQuery) {
-    const { status, batch, page, limit } = query;
+    const { status, batch, q, page, limit } = query;
     const offset = (page - 1) * limit;
 
-    const conditions = [eq(tokens.electionId, electionId)];
+    const conditions: (SQL<unknown> | undefined)[] = [eq(tokens.electionId, electionId)];
     if (status) conditions.push(eq(tokens.status, status));
     if (batch) conditions.push(eq(tokens.generatedBatch, batch));
+    if (q) {
+      const pattern = `%${q}%`;
+      conditions.push(or(ilike(tokens.token, pattern), ilike(tokens.generatedBatch, pattern)));
+    }
 
     const whereExpr = and(...conditions);
 

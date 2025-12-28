@@ -28,6 +28,8 @@ function clampInt(value: string | null, def: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
 }
 
+
+
 function safeSlug(s: string) {
   return s
     .toLowerCase()
@@ -56,7 +58,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const headers: HeadersInit = { Accept: "application/json" };
   const cookie = req.headers.get("cookie");
-  if (cookie) (headers as any).cookie = cookie;
+  if (cookie) (headers as Record<string, string>).cookie = cookie;
 
   let page = 1;
   let total = Infinity;
@@ -72,13 +74,12 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     const url = `${apiBase}/admin/tokens/${electionId}?${qs.toString()}`;
 
-    let data: AdminTokensListResponse;
     const res = await fetch(url, { headers, cache: "no-store" });
     if (!res.ok) {
       const text = await res.text();
       return new Response(`Gagal mengambil data token dari server: ${text}`, { status: 500 });
     }
-    data = (await res.json()) as AdminTokensListResponse;
+    const data = (await res.json()) as AdminTokensListResponse;
 
     if (!firstPageData) firstPageData = data;
 
@@ -105,6 +106,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const electionName = firstPageData.election.name ?? "Pemilihan";
   const electionSlug = firstPageData.election.slug ?? safeSlug(electionName);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const element = React.createElement(TokenSheetDocument as any, {
     tokens: allTokens,
     electionName,
@@ -112,6 +114,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     batch: batch || null
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfUint8 = (await renderToBuffer(element as any)) as Uint8Array;
 
   const pdfArrayBuffer = new ArrayBuffer(pdfUint8.byteLength);

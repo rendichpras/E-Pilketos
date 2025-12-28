@@ -2,6 +2,7 @@ import { voterRepository } from "./voter.repository";
 import { UnauthorizedError, BadRequestError, ConflictError } from "../../../core/errors";
 import { addSeconds, createSessionToken } from "../../../utils/session";
 import { env } from "../../../env";
+import { ERROR_CODES } from "@e-pilketos/types";
 
 function normalizeToken(input: string): string | null {
   const cleaned = input.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
@@ -21,19 +22,19 @@ export const voterAuthService = {
   async login(rawToken: string): Promise<VoterLoginResult> {
     const normalizedToken = normalizeToken(rawToken);
     if (!normalizedToken) {
-      throw new UnauthorizedError("Token tidak valid");
+      throw new UnauthorizedError("Token tidak valid", ERROR_CODES.TOKEN_INVALID);
     }
 
     const now = new Date();
     const rows = await voterRepository.findTokenWithElection(normalizedToken);
 
     if (rows.length === 0) {
-      throw new UnauthorizedError("Token tidak valid");
+      throw new UnauthorizedError("Token tidak valid", ERROR_CODES.TOKEN_INVALID);
     }
 
     const unusedRows = rows.filter((r) => r.token.status === "UNUSED");
     if (unusedRows.length === 0) {
-      throw new ConflictError("Token sudah digunakan", "TOKEN_USED");
+      throw new ConflictError("Token sudah digunakan", ERROR_CODES.TOKEN_USED);
     }
 
     const activeUnused = unusedRows.filter((r) => {
@@ -42,13 +43,16 @@ export const voterAuthService = {
     });
 
     if (activeUnused.length === 0) {
-      throw new BadRequestError("Pemilihan tidak aktif atau di luar jadwal", "ELECTION_INACTIVE");
+      throw new BadRequestError(
+        "Pemilihan tidak aktif atau di luar jadwal",
+        ERROR_CODES.ELECTION_INACTIVE
+      );
     }
 
     if (activeUnused.length > 1) {
       throw new ConflictError(
         "Token terdeteksi untuk lebih dari satu pemilihan yang aktif. Hubungi panitia.",
-        "TOKEN_AMBIGUOUS"
+        ERROR_CODES.TOKEN_AMBIGUOUS
       );
     }
 

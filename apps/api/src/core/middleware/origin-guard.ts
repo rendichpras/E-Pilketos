@@ -1,4 +1,6 @@
 import type { MiddlewareHandler } from "hono";
+import { ERROR_CODES } from "@e-pilketos/types";
+import { ForbiddenError } from "../errors";
 
 type OriginGuardOptions = {
   allowedOrigins: string[];
@@ -25,11 +27,11 @@ export function originGuard(opts: OriginGuardOptions): MiddlewareHandler {
 
     const origin = c.req.header("origin") ?? "";
     if (!origin) {
-      return c.json({ ok: false, error: "Origin header missing", code: "ORIGIN_MISSING" }, 403);
+      throw new ForbiddenError("Origin header missing", ERROR_CODES.ORIGIN_MISSING);
     }
 
     if (!allowed.has(normalizeOrigin(origin))) {
-      return c.json({ ok: false, error: "Origin not allowed", code: "ORIGIN_NOT_ALLOWED" }, 403);
+      throw new ForbiddenError("Origin not allowed", ERROR_CODES.ORIGIN_NOT_ALLOWED);
     }
 
     return next();

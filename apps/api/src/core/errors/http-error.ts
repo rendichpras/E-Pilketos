@@ -1,13 +1,15 @@
+import type { ErrorCode } from "@e-pilketos/types";
+
 export class HttpError extends Error {
   public readonly statusCode: number;
-  public readonly code: string;
+  public readonly code: ErrorCode;
   public readonly details?: unknown;
 
-  constructor(statusCode: number, message: string, code?: string, details?: unknown) {
+  constructor(statusCode: number, message: string, code: ErrorCode, details?: unknown) {
     super(message);
     this.name = "HttpError";
     this.statusCode = statusCode;
-    this.code = code ?? "ERROR";
+    this.code = code;
     this.details = details;
 
     Error.captureStackTrace(this, this.constructor);
@@ -15,7 +17,7 @@ export class HttpError extends Error {
 }
 
 export class BadRequestError extends HttpError {
-  constructor(message: string, code = "BAD_REQUEST", details?: unknown) {
+  constructor(message: string, code: ErrorCode = "BAD_REQUEST", details?: unknown) {
     super(400, message, code, details);
     this.name = "BadRequestError";
   }
@@ -29,15 +31,19 @@ export class ValidationError extends HttpError {
 }
 
 export class UnauthorizedError extends HttpError {
-  constructor(message = "Tidak terautentikasi") {
-    super(401, message, "UNAUTHORIZED");
+  constructor(
+    message = "Tidak terautentikasi",
+    code: ErrorCode = "UNAUTHORIZED",
+    details?: unknown
+  ) {
+    super(401, message, code, details);
     this.name = "UnauthorizedError";
   }
 }
 
 export class ForbiddenError extends HttpError {
-  constructor(message = "Akses ditolak") {
-    super(403, message, "FORBIDDEN");
+  constructor(message = "Akses ditolak", code: ErrorCode = "FORBIDDEN", details?: unknown) {
+    super(403, message, code, details);
     this.name = "ForbiddenError";
   }
 }
@@ -50,7 +56,7 @@ export class NotFoundError extends HttpError {
 }
 
 export class ConflictError extends HttpError {
-  constructor(message: string, code = "CONFLICT") {
+  constructor(message: string, code: ErrorCode = "CONFLICT") {
     super(409, message, code);
     this.name = "ConflictError";
   }

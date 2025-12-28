@@ -21,6 +21,8 @@
     "format": "pnpm -r --parallel --stream format",
     "format:check": "pnpm -r --parallel --stream format:check",
 
+    "typecheck": "pnpm -r --parallel --stream typecheck",
+
     "lint": "pnpm --filter @e-pilketos/web lint",
     "build": "pnpm --filter @e-pilketos/web build",
     "start": "pnpm --filter @e-pilketos/web start"
