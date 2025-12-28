@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { QueryProvider } from "@/lib/providers/query-provider";
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <QueryProvider>{children}</QueryProvider>;
 }
