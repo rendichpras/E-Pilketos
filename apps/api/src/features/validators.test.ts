@@ -5,7 +5,6 @@ import {
   createElectionSchema,
   updateElectionSchema,
   createCandidateSchema,
-  updateCandidateSchema,
   generateTokensSchema,
   voteSchema,
   paginationQuerySchema,
@@ -56,9 +55,12 @@ describe("voterLoginSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects lowercase token", () => {
+  it("normalizes lowercase token to uppercase", () => {
     const result = voterLoginSchema.safeParse({ token: "abcd-1234" });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.token).toBe("ABCD-1234");
+    }
   });
 
   it("rejects token without dash", () => {

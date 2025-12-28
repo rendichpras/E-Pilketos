@@ -28,8 +28,6 @@ function clampInt(value: string | null, def: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
 }
 
-
-
 function safeSlug(s: string) {
   return s
     .toLowerCase()

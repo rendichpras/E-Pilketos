@@ -19,7 +19,7 @@ vi.mock("./repository", () => ({
 
 import { candidateService } from "./service";
 import { candidateRepository, electionForCandidate } from "./repository";
-import { NotFoundError, BadRequestError, ConflictError } from "../../core/errors";
+import { NotFoundError, BadRequestError, ConflictError as _ConflictError } from "../../core/errors";
 
 describe("candidateService", () => {
   beforeEach(() => {

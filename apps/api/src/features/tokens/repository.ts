@@ -1,4 +1,4 @@
-import { SQL, asc, and, eq, ilike, or, sql } from "drizzle-orm";
+import { type SQL, asc, and, eq, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "../../db/client";
 import { elections, tokens, auditLogs, voterSessions } from "../../db/schema";
@@ -62,24 +62,38 @@ export const tokenRepository = {
   },
 
   async generate(electionId: string, count: number, batchLabel?: string) {
-    let created = 0;
-    while (created < count) {
-      const tokenStr = generateTokenString();
-      try {
-        await db.insert(tokens).values({
-          electionId,
-          token: tokenStr,
-          generatedBatch: batchLabel
-        });
-        created += 1;
-      } catch (e: unknown) {
-        const pgErr = e as { code?: string; constraint?: string };
-        if (pgErr?.code === "23505" && pgErr?.constraint === "tokens_election_token_unique")
-          continue;
-        throw e;
+    return db.transaction(async (tx) => {
+      let created = 0;
+      const maxAttempts = count * 3;
+      let attempts = 0;
+
+      while (created < count && attempts < maxAttempts) {
+        const tokenStr = generateTokenString();
+        attempts += 1;
+        try {
+          await tx.insert(tokens).values({
+            electionId,
+            token: tokenStr,
+            generatedBatch: batchLabel
+          });
+          created += 1;
+        } catch (e: unknown) {
+          const pgErr = e as { code?: string; constraint?: string };
+          if (pgErr?.code === "23505" && pgErr?.constraint === "tokens_election_token_unique") {
+            continue;
+          }
+          throw e;
+        }
       }
-    }
-    return created;
+
+      if (created < count) {
+        throw new Error(
+          `Hanya berhasil membuat ${created} dari ${count} token setelah ${maxAttempts} percobaan`
+        );
+      }
+
+      return created;
+    });
   },
 
   async invalidate(id: string) {

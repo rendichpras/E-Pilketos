@@ -19,7 +19,7 @@ export function created<T>(c: Context, data: T) {
 }
 
 export function noContent(c: Context) {
-  return c.json({ ok: true as const }, 200);
+  return c.body(null, 204);
 }
 
 export function paginated<T>(c: Context, data: T[], pagination: Omit<Pagination, "totalPages">) {

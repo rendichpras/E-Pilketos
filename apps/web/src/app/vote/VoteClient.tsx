@@ -48,8 +48,6 @@ export default function VoteClient() {
 
   const ready = useMemo(() => isTokenComplete(token), [token]);
 
-
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!ready || submitting) return;

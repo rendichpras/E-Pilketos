@@ -216,16 +216,6 @@ GET /health/live   - liveness probe
 
 ---
 
-## Maintenance
-
-```bash
-pnpm maintenance:run    # jalankan maintenance
-pnpm integrity:check    # cek integritas data
-pnpm autoClose:run      # auto-close election yang sudah lewat waktu
-```
-
----
-
 ## Struktur Folder
 
 ```

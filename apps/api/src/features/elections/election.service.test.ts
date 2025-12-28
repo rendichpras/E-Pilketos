@@ -27,7 +27,7 @@ vi.mock("../../shared/audit", () => ({
 
 import { electionService } from "./service";
 import { electionRepository } from "./repository";
-import { NotFoundError, BadRequestError, ConflictError } from "../../core/errors";
+import { NotFoundError, BadRequestError, ConflictError as _ConflictError } from "../../core/errors";
 
 describe("electionService", () => {
   beforeEach(() => {

@@ -71,10 +71,10 @@ export const candidateService = {
         ketuaClass: data.ketuaClass ?? current.ketuaClass,
         wakilName: data.wakilName ?? current.wakilName,
         wakilClass: data.wakilClass ?? current.wakilClass,
-        photoUrl: data.photoUrl ?? current.photoUrl ?? undefined,
-        vision: data.vision ?? current.vision ?? undefined,
-        mission: data.mission ?? current.mission ?? undefined,
-        programs: data.programs ?? current.programs ?? undefined,
+        photoUrl: data.photoUrl !== undefined ? data.photoUrl : current.photoUrl,
+        vision: data.vision !== undefined ? data.vision : current.vision,
+        mission: data.mission !== undefined ? data.mission : current.mission,
+        programs: data.programs !== undefined ? data.programs : current.programs,
         isActive: data.isActive ?? current.isActive
       });
 

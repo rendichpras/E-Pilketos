@@ -44,8 +44,10 @@ export async function getRedisClient(): Promise<RedisClient | null> {
       console.error("Redis connect failed:", err);
 
       try {
-        client?.disconnect();
-      } catch {}
+        void client?.disconnect();
+      } catch {
+        // Ignore disconnect errors
+      }
 
       client = null;
       connectPromise = null;
@@ -63,8 +65,10 @@ export async function quitRedis(): Promise<void> {
     await client.quit();
   } catch {
     try {
-      client.disconnect();
-    } catch {}
+      void client.disconnect();
+    } catch {
+      // Ignore disconnect errors
+    }
   } finally {
     client = null;
     connectPromise = null;

@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import { env } from "../../env";
 import { isIP } from "node:net";
 import { getRedisClient, hasRedis } from "../../utils/redis";
+import { logger } from "../logger";
 
 type HonoCtx = Parameters<MiddlewareHandler>[0];
 
@@ -167,7 +168,7 @@ export function rateLimit(opts: RateLimitOptions): MiddlewareHandler {
           return;
         }
       } catch (e) {
-        console.error("RateLimit Redis failed, falling back to memory:", e);
+        logger.error({ err: e }, "RateLimit Redis failed, falling back to memory");
       }
     }
 

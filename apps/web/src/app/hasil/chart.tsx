@@ -28,7 +28,14 @@ function fmtPercent(n: number) {
   return `${n.toFixed(1)}%`;
 }
 
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: VotesChartDatum }[]; label?: string }) => {
+const CustomTooltip = ({
+  active,
+  payload
+}: {
+  active?: boolean;
+  payload?: { payload: VotesChartDatum }[];
+  label?: string;
+}) => {
   if (active && payload && payload.length) {
     const p = payload[0]?.payload as VotesChartDatum | undefined;
     if (!p) return null;
@@ -70,7 +77,7 @@ const CustomizedAxisTick = (props: { x?: number; y?: number; payload?: { value: 
       {payload.value}
     </text>
   );
-}
+};
 
 function TopLabel(props: { x?: number; y?: number; width?: number; value?: number }) {
   const { x, y, width, value } = props;

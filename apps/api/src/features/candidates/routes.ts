@@ -32,10 +32,10 @@ adminCandidatesApp.post("/election/:electionId", async (c) => {
       ketuaClass: data.ketuaClass,
       wakilName: data.wakilName,
       wakilClass: data.wakilClass,
-      photoUrl: data.photoUrl ?? undefined,
-      vision: data.vision ?? undefined,
-      mission: data.mission ?? undefined,
-      programs: data.programs ?? undefined,
+      photoUrl: data.photoUrl,
+      vision: data.vision,
+      mission: data.mission,
+      programs: data.programs,
       isActive: data.isActive
     },
     admin.adminId
@@ -59,10 +59,10 @@ adminCandidatesApp.put("/:id", async (c) => {
       ketuaClass: data.ketuaClass,
       wakilName: data.wakilName,
       wakilClass: data.wakilClass,
-      photoUrl: data.photoUrl ?? undefined,
-      vision: data.vision ?? undefined,
-      mission: data.mission ?? undefined,
-      programs: data.programs ?? undefined,
+      photoUrl: data.photoUrl,
+      vision: data.vision,
+      mission: data.mission,
+      programs: data.programs,
       isActive: data.isActive
     },
     admin.adminId

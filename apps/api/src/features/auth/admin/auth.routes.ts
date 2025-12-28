@@ -24,7 +24,7 @@ adminAuthApp.post(
   async (c) => {
     const { username, password } = await validateBody(c, adminLoginSchema);
 
-    const { admin, sessionToken, expiresAt } = await adminAuthService.login(username, password);
+    const { admin, sessionToken, expiresAt: _expiresAt } = await adminAuthService.login(username, password);
 
     setCookie(c, "admin_session", sessionToken, {
       httpOnly: true,

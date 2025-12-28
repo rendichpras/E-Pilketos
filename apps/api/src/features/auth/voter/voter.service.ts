@@ -4,10 +4,8 @@ import { addSeconds, createSessionToken } from "../../../utils/session";
 import { env } from "../../../env";
 import { ERROR_CODES } from "@e-pilketos/types";
 
-function normalizeToken(input: string): string | null {
-  const cleaned = input.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  if (cleaned.length !== 8) return null;
-  return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}`;
+function normalizeToken(input: string): string {
+  return input.toUpperCase();
 }
 
 export interface VoterLoginResult {
@@ -21,9 +19,6 @@ export interface VoterLoginResult {
 export const voterAuthService = {
   async login(rawToken: string): Promise<VoterLoginResult> {
     const normalizedToken = normalizeToken(rawToken);
-    if (!normalizedToken) {
-      throw new UnauthorizedError("Token tidak valid", ERROR_CODES.TOKEN_INVALID);
-    }
 
     const now = new Date();
     const rows = await voterRepository.findTokenWithElection(normalizedToken);

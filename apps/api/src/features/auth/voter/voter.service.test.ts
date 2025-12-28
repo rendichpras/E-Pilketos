@@ -73,20 +73,15 @@ describe("voterAuthService", () => {
       expect(voterRepository.createSession).toHaveBeenCalled();
     });
 
-    it("normalizes token format", async () => {
+    it("normalizes token to uppercase", async () => {
       vi.mocked(voterRepository.findTokenWithElection).mockResolvedValue([
         { token: mockUnusedToken, election: mockActiveElection }
       ]);
       vi.mocked(voterRepository.createSession).mockResolvedValue(undefined);
 
-      await voterAuthService.login("abcd1234");
+      await voterAuthService.login("abcd-1234");
 
       expect(voterRepository.findTokenWithElection).toHaveBeenCalledWith("ABCD-1234");
-    });
-
-    it("throws UnauthorizedError for invalid token format", async () => {
-      await expect(voterAuthService.login("invalid")).rejects.toThrow(UnauthorizedError);
-      await expect(voterAuthService.login("ABC")).rejects.toThrow("Token tidak valid");
     });
 
     it("throws UnauthorizedError for non-existent token", async () => {

@@ -1,6 +1,6 @@
 import { and, desc, eq, ne, lte, gte } from "drizzle-orm";
 import { db } from "../../db/client";
-import { elections, auditLogs } from "../../db/schema";
+import { elections } from "../../db/schema";
 
 export type CreateElectionData = {
   slug: string;

@@ -10,10 +10,10 @@ export type CreateCandidateData = {
   ketuaClass: string;
   wakilName: string;
   wakilClass: string;
-  photoUrl?: string;
-  vision?: string;
-  mission?: string;
-  programs?: string;
+  photoUrl?: string | null;
+  vision?: string | null;
+  mission?: string | null;
+  programs?: string | null;
   isActive?: boolean;
 };
 
@@ -24,10 +24,10 @@ export type UpdateCandidateData = {
   ketuaClass?: string;
   wakilName?: string;
   wakilClass?: string;
-  photoUrl?: string;
-  vision?: string;
-  mission?: string;
-  programs?: string;
+  photoUrl?: string | null;
+  vision?: string | null;
+  mission?: string | null;
+  programs?: string | null;
   isActive?: boolean;
 };
 

@@ -78,7 +78,10 @@ export const voterLoginSchema = z.object({
   token: z
     .string()
     .min(1, "Token wajib diisi")
-    .regex(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/, "Format token tidak valid (contoh: ABCD-1234)")
+    .transform((v) => v.toUpperCase().trim())
+    .pipe(
+      z.string().regex(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/, "Format token tidak valid (contoh: ABCD-1234)")
+    )
 });
 
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
