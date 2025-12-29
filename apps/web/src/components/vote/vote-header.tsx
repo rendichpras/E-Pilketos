@@ -1,17 +1,14 @@
 "use client";
 
-import { VoteStepper } from "@/components/vote/vote-stepper";
 import { ElectionInfo } from "@/components/vote/election-info";
 
 export function VoteHeader({
-  step,
   eyebrow,
   title,
   description,
   electionName,
   electionRange
 }: {
-  step: 1 | 2 | 3;
   eyebrow: string;
   title: string;
   description?: string;
@@ -20,7 +17,6 @@ export function VoteHeader({
 }) {
   return (
     <section className="space-y-4">
-      <VoteStepper step={step} />
 
       <div className="space-y-2">
         <p className="text-muted-foreground font-mono text-[11px] tracking-[0.22em] uppercase">

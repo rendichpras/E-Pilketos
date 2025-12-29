@@ -22,9 +22,9 @@ import {
   Lock,
   ShieldCheck,
   Activity,
-  KeyRound,
-  Loader2
+  KeyRound
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -227,7 +227,7 @@ export default function AdminLoginPage() {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner />
                       Memproses...
                     </>
                   ) : (

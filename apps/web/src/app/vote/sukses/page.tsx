@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import SuksesClient from "./SuksesClient";
+import { Spinner } from "@/components/ui/spinner";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export default function VoteSuksesPage() {
     <Suspense
       fallback={
         <div className="bg-background text-foreground flex min-h-screen items-center justify-center">
-          <div className="text-muted-foreground text-sm">Memuat...</div>
+          <Spinner className="size-8" />
         </div>
       }
     >

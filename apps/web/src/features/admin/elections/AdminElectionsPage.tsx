@@ -12,6 +12,7 @@ import { useAdmin } from "@/features/admin/session/admin-context";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,7 +68,6 @@ import {
   CalendarClock,
   Eye,
   EyeOff,
-  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -892,7 +892,7 @@ export default function AdminElectionsPage() {
                 <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner />
                       Menyimpan...
                     </>
                   ) : (
