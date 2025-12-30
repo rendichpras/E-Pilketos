@@ -1,0 +1,13 @@
+node_modules
+.next
+.out
+dist
+.drizzle
+.drizzle-kit
+migrations
+*.log
+coverage
+
+# env
+.env
+.env.*
