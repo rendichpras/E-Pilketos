@@ -7,6 +7,11 @@ import { rateLimit, getClientIp, rateLimitConfig } from "../../../core/middlewar
 import { success } from "../../../core/response";
 import { validateBody } from "../../../core/validation";
 import { voterLoginSchema } from "@/shared/validators";
+import {
+  COOKIE_NAMES,
+  getSessionCookieOptions,
+  getDeleteCookieOptions
+} from "../../../utils/cookie";
 
 export const voterAuthApp = new Hono<AppEnv>();
 
@@ -23,14 +28,7 @@ voterAuthApp.post(
 
     const result = await voterAuthService.login(token);
 
-    setCookie(c, "voter_session", result.sessionToken, {
-      httpOnly: true,
-      secure: env.COOKIE_SECURE ?? env.NODE_ENV === "production",
-      sameSite: env.COOKIE_SAMESITE,
-      domain: env.COOKIE_DOMAIN,
-      path: "/",
-      maxAge: env.VOTER_SESSION_TTL_SEC
-    });
+    setCookie(c, COOKIE_NAMES.VOTER_SESSION, result.sessionToken, getSessionCookieOptions("voter"));
 
     return success(c, {
       electionId: result.electionId,
@@ -41,13 +39,13 @@ voterAuthApp.post(
 );
 
 voterAuthApp.post("/token-logout", async (c) => {
-  const sessionToken = getCookie(c, "voter_session");
+  const sessionToken = getCookie(c, COOKIE_NAMES.VOTER_SESSION);
 
   if (sessionToken) {
     await voterAuthService.logout(sessionToken);
   }
 
-  deleteCookie(c, "voter_session", { path: "/", domain: env.COOKIE_DOMAIN });
+  deleteCookie(c, COOKIE_NAMES.VOTER_SESSION, getDeleteCookieOptions());
 
   return success(c, { success: true });
 });

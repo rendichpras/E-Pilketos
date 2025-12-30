@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 import {
   Sidebar,
   SidebarContent,

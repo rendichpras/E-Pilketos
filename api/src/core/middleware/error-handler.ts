@@ -121,10 +121,10 @@ export function onError(err: unknown, c: Context<AppEnv>): Response {
       stack: (err as Error)?.stack,
       pg: pgErr?.code
         ? {
-          code: pgErr.code,
-          constraint: pgErr.constraint,
-          detail: pgErr.detail
-        }
+            code: pgErr.code,
+            constraint: pgErr.constraint,
+            detail: pgErr.detail
+          }
         : null,
       path: c.req.path,
       method: c.req.method

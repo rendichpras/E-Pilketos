@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 import { AdminProvider } from "@/features/admin/session/admin-context";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { adminApi } from "@/lib/api";

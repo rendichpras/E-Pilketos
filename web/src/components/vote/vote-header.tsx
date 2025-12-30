@@ -17,7 +17,6 @@ export function VoteHeader({
 }) {
   return (
     <section className="space-y-4">
-
       <div className="space-y-2">
         <p className="text-muted-foreground font-mono text-[11px] tracking-[0.22em] uppercase">
           {eyebrow}

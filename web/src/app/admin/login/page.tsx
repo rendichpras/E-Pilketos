@@ -15,15 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-import {
-  AlertCircle,
-  Eye,
-  EyeOff,
-  Lock,
-  ShieldCheck,
-  Activity,
-  KeyRound
-} from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Lock, ShieldCheck, Activity, KeyRound } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function AdminLoginPage() {

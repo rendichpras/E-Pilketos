@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { publicGet, ServerApiError } from "@/lib/api/server";
-import type { Election, PublicResultsResponse } from "@/lib/types";
+import type { Election, PublicResultsResponse } from "@/shared/types";
 
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";

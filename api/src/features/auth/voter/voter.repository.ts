@@ -1,7 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { elections, tokens, voterSessions } from "../../../db/schema";
-import { hashSessionToken } from "../../../core/security/session-token";
+import { hashSessionToken } from "../../../utils/session";
 
 export const voterRepository = {
   async findTokenWithElection(normalizedToken: string) {

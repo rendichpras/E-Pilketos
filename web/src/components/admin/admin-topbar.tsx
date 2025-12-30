@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";

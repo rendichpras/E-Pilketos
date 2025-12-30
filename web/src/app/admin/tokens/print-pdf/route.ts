@@ -2,7 +2,7 @@ import React from "react";
 import type { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import type { AdminTokensListResponse } from "@/lib/types";
+import type { AdminTokensListResponse } from "@/shared/types";
 import { TokenSheetDocument } from "../TokenSheetDocument";
 
 export const dynamic = "force-dynamic";

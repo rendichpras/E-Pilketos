@@ -1,19 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-
-import { ApiError } from "@/lib/api/client";
-import { adminApi } from "@/lib/api";
-import type { CandidatePair, Election } from "@/lib/types";
-import { cn } from "@/lib/cn";
-
-import { toast } from "sonner";
-
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardHeader,
@@ -26,8 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectTrigger,
@@ -36,28 +23,11 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-  SheetFooter
+  SheetDescription
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -69,85 +39,58 @@ import {
   AlertDialogCancel,
   AlertDialogAction
 } from "@/components/ui/alert-dialog";
+import { Users2, Plus, RefreshCw, Search, Pencil, ShieldAlert } from "lucide-react";
 
-import {
-  Users2,
-  Plus,
-  RefreshCw,
-  Search,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Save,
-  CircleSlash2,
-  CheckCircle2,
-  ShieldAlert
-} from "lucide-react";
+import { useElections } from "@/features/admin/elections/hooks/useElections";
+import { useCandidates } from "./hooks/useCandidates";
+import { CandidateForm, type CandidateFormData } from "./components/CandidateForm";
+import { CandidatesTable } from "./components/CandidatesTable";
 
-type CandidateForm = {
-  number: string;
-  shortName: string;
-  ketuaName: string;
-  ketuaClass: string;
-  wakilName: string;
-  wakilClass: string;
-  photoUrl: string;
-  vision: string;
-  mission: string;
-  programs: string;
-  isActive: boolean;
-};
-
-
+import type { CandidatePair } from "@/shared/types";
+import { normalize } from "@/lib/search";
+import { toast } from "sonner";
 
 type StatusTab = "all" | "active" | "inactive";
 
-function normalize(s: string) {
-  return s.toLowerCase().trim();
-}
-
-function statusBadge(isActive: boolean) {
-  return cn(
-    "rounded-full px-2 py-0 text-[11px] font-medium",
-    isActive
-      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700"
-      : "border-border bg-muted text-muted-foreground"
-  );
-}
-
 export default function AdminCandidatesPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    elections,
+    loading: electionsLoading,
+    refresh: refreshElections,
+    error: electionsError
+  } = useElections();
 
-  const [elections, setElections] = useState<Election[]>([]);
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(null);
 
-  const [candidates, setCandidates] = useState<CandidatePair[]>([]);
+  useEffect(() => {
+    if (!selectedElectionId && elections.length > 0) {
+      const active = elections.find((e) => e.status === "ACTIVE");
+      const def = active?.id ?? elections[0]?.id;
+      if (def) setSelectedElectionId(def);
+    }
+  }, [elections, selectedElectionId]);
+
+  const {
+    candidates,
+    loading: candidatesLoading,
+    error: candidatesError,
+    refresh: refreshCandidates,
+    createCandidate,
+    updateCandidate,
+    deleteCandidate,
+    toggleActive
+  } = useCandidates(selectedElectionId);
 
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<StatusTab>("all");
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<CandidatePair | null>(null);
+  const [formSubmitting, setFormSubmitting] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<CandidatePair | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  const [form, setForm] = useState<CandidateForm>({
-    number: "",
-    shortName: "",
-    ketuaName: "",
-    ketuaClass: "",
-    wakilName: "",
-    wakilClass: "",
-    photoUrl: "",
-    vision: "",
-    mission: "",
-    programs: "",
-    isActive: true
-  });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const selectedElection = useMemo(
     () => elections.find((e) => e.id === selectedElectionId) ?? null,
@@ -179,96 +122,20 @@ export default function AdminCandidatesPage() {
       .sort((a, b) => a.number - b.number);
   }, [candidates, query, tab]);
 
-  function resetForm() {
-    setForm({
-      number: "",
-      shortName: "",
-      ketuaName: "",
-      ketuaClass: "",
-      wakilName: "",
-      wakilClass: "",
-      photoUrl: "",
-      vision: "",
-      mission: "",
-      programs: "",
-      isActive: true
-    });
-    setEditingId(null);
-    setError(null);
-  }
-
-  async function loadCandidates(electionId: string) {
-    try {
-      const data = await adminApi.candidates.listByElection(electionId);
-      setCandidates(data.candidates);
-    } catch (err: unknown) {
-      const message =
-        err instanceof ApiError
-          ? err.message || "Gagal memuat kandidat."
-          : "Gagal memuat kandidat.";
-      setError(message);
-      toast.error(message);
-    }
-  }
-
-  async function loadElections() {
-    setError(null);
-    try {
-      const data = await adminApi.elections.list();
-
-      const active = data.find((e) => e.status === "ACTIVE");
-      const selectedId = active?.id ?? data[0]?.id ?? null;
-
-      setElections(data);
-      setSelectedElectionId(selectedId);
-
-      if (selectedId) {
-        await loadCandidates(selectedId);
-      } else {
-        setCandidates([]);
-      }
-    } catch (err: unknown) {
-      const message =
-        err instanceof ApiError
-          ? err.message || "Gagal memuat daftar pemilihan."
-          : "Gagal memuat daftar pemilihan.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadElections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleElectionChange(value: string) {
-    const id = value || null;
-    setSelectedElectionId(id);
-    setCandidates([]);
+  function handleElectionChange(value: string) {
+    setSelectedElectionId(value || null);
     setQuery("");
     setTab("all");
-    resetForm();
-    setSheetOpen(false);
-
-    if (id) {
-      await loadCandidates(id);
-    }
+    setEditingCandidate(null);
   }
 
   function guardDraftOnly() {
     if (!selectedElectionId) {
-      const msg = "Pilih pemilihan terlebih dahulu.";
-      setError(msg);
-      toast.error(msg);
+      toast.error("Pilih pemilihan terlebih dahulu.");
       return false;
     }
     if (!canEdit) {
-      const msg = "Kandidat hanya bisa diubah saat status pemilihan masih DRAFT.";
-      setError(msg);
-      toast.error(msg);
+      toast.error("Kandidat hanya bisa diubah saat status pemilihan masih DRAFT.");
       return false;
     }
     return true;
@@ -276,150 +143,76 @@ export default function AdminCandidatesPage() {
 
   function openCreate() {
     if (!guardDraftOnly()) return;
-    resetForm();
+    setEditingCandidate(null);
     setSheetOpen(true);
   }
 
   function openEdit(candidate: CandidatePair) {
     if (!guardDraftOnly()) return;
-
-    setEditingId(candidate.id);
-    setForm({
-      number: String(candidate.number),
-      shortName: candidate.shortName,
-      ketuaName: candidate.ketuaName,
-      ketuaClass: candidate.ketuaClass,
-      wakilName: candidate.wakilName,
-      wakilClass: candidate.wakilClass,
-      photoUrl: candidate.photoUrl ?? "",
-      vision: candidate.vision ?? "",
-      mission: candidate.mission ?? "",
-      programs: candidate.programs ?? "",
-      isActive: candidate.isActive
-    });
-    setError(null);
+    setEditingCandidate(candidate);
     setSheetOpen(true);
   }
 
   function closeSheet() {
     setSheetOpen(false);
-    setSubmitting(false);
-    setEditingId(null);
-    resetForm();
+    setEditingCandidate(null);
+    setFormSubmitting(false);
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleFormSubmit(data: CandidateFormData) {
     if (!guardDraftOnly()) return;
-
-    const number = Number.parseInt(form.number, 10);
-    if (Number.isNaN(number) || number <= 0) {
-      const msg = "Nomor urut wajib berupa angka positif.";
-      setError(msg);
-      toast.error(msg);
-      return;
-    }
-
-    if (
-      !form.shortName.trim() ||
-      !form.ketuaName.trim() ||
-      !form.ketuaClass.trim() ||
-      !form.wakilName.trim() ||
-      !form.wakilClass.trim()
-    ) {
-      const msg = "Nama singkat, ketua, kelas ketua, wakil, dan kelas wakil wajib diisi.";
-      setError(msg);
-      toast.error(msg);
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
-    const payload = {
-      number,
-      shortName: form.shortName.trim(),
-      ketuaName: form.ketuaName.trim(),
-      ketuaClass: form.ketuaClass.trim(),
-      wakilName: form.wakilName.trim(),
-      wakilClass: form.wakilClass.trim(),
-      photoUrl: form.photoUrl.trim() || undefined,
-      vision: form.vision.trim() || undefined,
-      mission: form.mission.trim() || undefined,
-      programs: form.programs.trim() || undefined,
-      isActive: form.isActive
-    };
-
+    setFormSubmitting(true);
     try {
-      if (editingId) {
-        const updated = await adminApi.candidates.update(editingId, payload);
-        setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-        toast.success("Kandidat berhasil diperbarui.");
-      } else {
-        await adminApi.candidates.create(selectedElectionId!, payload);
-        await loadCandidates(selectedElectionId!);
-        toast.success("Kandidat berhasil ditambahkan.");
-      }
+      const payload = {
+        number: Number.parseInt(data.number, 10),
+        shortName: data.shortName.trim(),
+        ketuaName: data.ketuaName.trim(),
+        ketuaClass: data.ketuaClass.trim(),
+        wakilName: data.wakilName.trim(),
+        wakilClass: data.wakilClass.trim(),
+        photoUrl: data.photoUrl.trim() || undefined,
+        vision: data.vision.trim() || undefined,
+        mission: data.mission.trim() || undefined,
+        programs: data.programs.trim() || undefined,
+        isActive: data.isActive
+      };
 
+      if (editingCandidate) {
+        await updateCandidate(editingCandidate.id, payload);
+      } else {
+        await createCandidate(payload);
+      }
       closeSheet();
-    } catch (err: unknown) {
-      const message =
-        err instanceof ApiError
-          ? err.message || "Gagal menyimpan kandidat. Periksa kembali data."
-          : "Gagal menyimpan kandidat. Periksa kembali data.";
-      setError(message);
-      toast.error(message);
-      setSubmitting(false);
+    } catch {
+    } finally {
+      setFormSubmitting(false);
     }
   }
 
   async function handleDeleteConfirmed() {
     if (!confirmDelete) return;
-    if (!guardDraftOnly()) return;
-
     setDeletingId(confirmDelete.id);
-    setError(null);
-
     try {
-      await adminApi.candidates.remove(confirmDelete.id);
-      await loadCandidates(selectedElectionId!);
-      toast.success("Kandidat berhasil dihapus.");
+      await deleteCandidate(confirmDelete.id);
       setConfirmDelete(null);
-    } catch (err: unknown) {
-      const message =
-        err instanceof ApiError
-          ? err.message || "Gagal menghapus kandidat."
-          : "Gagal menghapus kandidat.";
-      setError(message);
-      toast.error(message);
+    } catch {
     } finally {
       setDeletingId(null);
     }
   }
 
-  async function toggleActive(candidate: CandidatePair, next: boolean) {
+  async function handleToggleActive(candidate: CandidatePair, next: boolean) {
     if (!guardDraftOnly()) return;
-
     setTogglingId(candidate.id);
-    setError(null);
-
     try {
-      const updated = await adminApi.candidates.update(candidate.id, { isActive: next });
-      setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-      toast.success(next ? "Kandidat diaktifkan." : "Kandidat dinonaktifkan.");
-    } catch (err: unknown) {
-      const message =
-        err instanceof ApiError
-          ? err.message || "Gagal mengubah status kandidat."
-          : "Gagal mengubah status kandidat.";
-      setError(message);
-      toast.error(message);
+      await toggleActive(candidate.id, next);
+    } catch {
     } finally {
       setTogglingId(null);
     }
   }
 
-  if (loading) {
+  if (electionsLoading && !selectedElection) {
     return (
       <div className="space-y-6">
         <div className="space-y-3">
@@ -427,7 +220,6 @@ export default function AdminCandidatesPage() {
           <Skeleton className="h-8 w-44" />
           <Skeleton className="h-4 w-2/3 max-w-xl" />
         </div>
-
         <Card className="border-border/70 bg-card/90 shadow-sm">
           <CardHeader className="border-border/60 border-b pb-3">
             <Skeleton className="h-5 w-56" />
@@ -467,7 +259,10 @@ export default function AdminCandidatesPage() {
               variant="outline"
               size="sm"
               className="h-8 rounded-full px-3 text-[11px]"
-              onClick={() => loadElections()}
+              onClick={() => {
+                refreshElections();
+                refreshCandidates();
+              }}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
@@ -486,10 +281,12 @@ export default function AdminCandidatesPage() {
         </div>
       </header>
 
-      {error && (
+      {(electionsError || candidatesError) && (
         <Alert variant="destructive" className="border-destructive/60 bg-destructive/10">
           <AlertTitle className="text-sm">Terjadi kesalahan</AlertTitle>
-          <AlertDescription className="text-xs">{error}</AlertDescription>
+          <AlertDescription className="text-xs">
+            {electionsError || candidatesError}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -522,7 +319,7 @@ export default function AdminCandidatesPage() {
                 onValueChange={handleElectionChange}
                 disabled={elections.length === 0}
               >
-                <SelectTrigger className="h-9 w-full min-w-0 text-xs **:data-[slot='select-value']:truncate">
+                <SelectTrigger className="h-9 w-full min-w-0 text-xs *:data-[slot='select-value']:truncate">
                   <SelectValue placeholder="Tidak ada pemilihan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -595,7 +392,13 @@ export default function AdminCandidatesPage() {
                 </div>
               </div>
 
-              {filtered.length === 0 ? (
+              {candidatesLoading ? (
+                <div className="space-y-2 py-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 text-center">
                   <Users2 className="text-muted-foreground h-8 w-8" />
                   <div className="space-y-1">
@@ -615,112 +418,15 @@ export default function AdminCandidatesPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="border-border/60 overflow-x-auto rounded-2xl border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/40">
-                        <TableHead className="w-[70px] text-xs">No</TableHead>
-                        <TableHead className="text-xs">Paslon</TableHead>
-                        <TableHead className="w-[120px] text-center text-xs">Aktif</TableHead>
-                        <TableHead className="w-[70px] text-right text-xs" />
-                      </TableRow>
-                    </TableHeader>
-
-                    <TableBody>
-                      {filtered.map((c) => (
-                        <TableRow key={c.id} className="align-top">
-                          <TableCell className="align-top">
-                            <Badge
-                              variant="outline"
-                              className="rounded-full font-mono text-[11px] tracking-[0.12em]"
-                            >
-                              {c.number}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="max-w-0 align-top">
-                            <div className="min-w-0 space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-xs font-semibold">{c.shortName}</p>
-                                <Badge variant="outline" className={statusBadge(c.isActive)}>
-                                  {c.isActive ? (
-                                    <span className="inline-flex items-center gap-1">
-                                      <CheckCircle2 className="h-3 w-3" />
-                                      Aktif
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1">
-                                      <CircleSlash2 className="h-3 w-3" />
-                                      Nonaktif
-                                    </span>
-                                  )}
-                                </Badge>
-                              </div>
-
-                              <div className="text-muted-foreground text-[11px]">
-                                <span className="text-foreground font-medium">Ketua:</span>{" "}
-                                <span className="inline-block max-w-[70%] truncate align-bottom">
-                                  {c.ketuaName}
-                                </span>{" "}
-                                <span className="text-muted-foreground">({c.ketuaClass})</span>
-                              </div>
-
-                              <div className="text-muted-foreground text-[11px]">
-                                <span className="text-foreground font-medium">Wakil:</span>{" "}
-                                <span className="inline-block max-w-[70%] truncate align-bottom">
-                                  {c.wakilName}
-                                </span>{" "}
-                                <span className="text-muted-foreground">({c.wakilClass})</span>
-                              </div>
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="align-top">
-                            <div className="flex items-center justify-center gap-2">
-                              <Switch
-                                checked={c.isActive}
-                                onCheckedChange={(next) => toggleActive(c, next)}
-                                disabled={
-                                  !canEdit ||
-                                  togglingId === c.id ||
-                                  submitting ||
-                                  deletingId === c.id
-                                }
-                              />
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-right align-top">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-
-                              <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuLabel className="text-xs">Aksi</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => openEdit(c)} disabled={!canEdit}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Ubah
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => setConfirmDelete(c)}
-                                  disabled={!canEdit}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Hapus
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <CandidatesTable
+                  candidates={filtered}
+                  canEdit={canEdit}
+                  onEdit={openEdit}
+                  onDelete={setConfirmDelete}
+                  onToggleActive={handleToggleActive}
+                  togglingId={togglingId}
+                  deletingId={deletingId}
+                />
               )}
             </div>
           )}
@@ -745,8 +451,8 @@ export default function AdminCandidatesPage() {
           <div className="border-border/60 border-b px-6 pt-6 pb-4">
             <SheetHeader className="p-0">
               <SheetTitle className="flex items-center gap-2">
-                {editingId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {editingId ? "Ubah paslon" : "Tambah paslon"}
+                {editingCandidate ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {editingCandidate ? "Ubah paslon" : "Tambah paslon"}
               </SheetTitle>
               <SheetDescription>
                 Isi data pasangan calon. Nomor urut wajib unik di pemilihan yang sama.
@@ -754,202 +460,33 @@ export default function AdminCandidatesPage() {
             </SheetHeader>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-            <ScrollArea className="min-h-0 flex-1 px-6 py-5">
-              <div className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="number">Nomor urut</Label>
-                    <Input
-                      id="number"
-                      value={form.number}
-                      onChange={(e) => setForm((p) => ({ ...p, number: e.target.value }))}
-                      inputMode="numeric"
-                      placeholder="1, 2, 3, ..."
-                      disabled={submitting}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="shortName">Nama singkat paslon</Label>
-                    <Input
-                      id="shortName"
-                      value={form.shortName}
-                      onChange={(e) => setForm((p) => ({ ...p, shortName: e.target.value }))}
-                      placeholder="misal: Harmoni Aksi"
-                      disabled={submitting}
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="ketuaName">Nama ketua</Label>
-                    <Input
-                      id="ketuaName"
-                      value={form.ketuaName}
-                      onChange={(e) => setForm((p) => ({ ...p, ketuaName: e.target.value }))}
-                      disabled={submitting}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ketuaClass">Kelas ketua</Label>
-                    <Input
-                      id="ketuaClass"
-                      value={form.ketuaClass}
-                      onChange={(e) => setForm((p) => ({ ...p, ketuaClass: e.target.value }))}
-                      placeholder="XI IPA 1"
-                      disabled={submitting}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="wakilName">Nama wakil</Label>
-                    <Input
-                      id="wakilName"
-                      value={form.wakilName}
-                      onChange={(e) => setForm((p) => ({ ...p, wakilName: e.target.value }))}
-                      disabled={submitting}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="wakilClass">Kelas wakil</Label>
-                    <Input
-                      id="wakilClass"
-                      value={form.wakilClass}
-                      onChange={(e) => setForm((p) => ({ ...p, wakilClass: e.target.value }))}
-                      placeholder="XI IPS 2"
-                      disabled={submitting}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="photoUrl">URL foto pasangan (opsional)</Label>
-                  <Input
-                    id="photoUrl"
-                    value={form.photoUrl}
-                    onChange={(e) => setForm((p) => ({ ...p, photoUrl: e.target.value }))}
-                    placeholder="https://..."
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="vision">Visi</Label>
-                  <Textarea
-                    id="vision"
-                    value={form.vision}
-                    onChange={(e) => setForm((p) => ({ ...p, vision: e.target.value }))}
-                    className="min-h-[80px]"
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="mission">Misi</Label>
-                  <Textarea
-                    id="mission"
-                    value={form.mission}
-                    onChange={(e) => setForm((p) => ({ ...p, mission: e.target.value }))}
-                    className="min-h-[80px]"
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="programs">Program kerja utama</Label>
-                  <Textarea
-                    id="programs"
-                    value={form.programs}
-                    onChange={(e) => setForm((p) => ({ ...p, programs: e.target.value }))}
-                    className="min-h-[80px]"
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div className="border-border/60 bg-muted/30 rounded-xl border p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium">Paslon aktif</p>
-                      <p className="text-muted-foreground text-[11px]">
-                        Jika nonaktif, paslon tidak tampil di halaman pemilihan.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={form.isActive}
-                      onCheckedChange={(checked) => setForm((p) => ({ ...p, isActive: checked }))}
-                      disabled={submitting}
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <Alert variant="destructive" className="border-destructive/60 bg-destructive/10">
-                    <AlertTitle className="text-sm">Tidak bisa menyimpan</AlertTitle>
-                    <AlertDescription className="text-xs">{error}</AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </ScrollArea>
-
-            <div className="border-border/60 bg-background/95 border-t px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur">
-              <SheetFooter className="flex flex-col-reverse gap-2 p-0 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={closeSheet} disabled={submitting}>
-                  Batal
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Menyimpan...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Simpan
-                    </>
-                  )}
-                </Button>
-              </SheetFooter>
-            </div>
-          </form>
+          <CandidateForm
+            key={editingCandidate ? editingCandidate.id : "create"}
+            initialData={editingCandidate}
+            onSubmit={handleFormSubmit}
+            onCancel={closeSheet}
+            isSubmitting={formSubmitting}
+          />
         </SheetContent>
       </Sheet>
 
-      <AlertDialog
-        open={Boolean(confirmDelete)}
-        onOpenChange={(open) => !open && setConfirmDelete(null)}
-      >
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus pasangan calon?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Kandidat</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini tidak dapat dibatalkan. Data paslon akan dihapus dari pemilihan.
+              Apakah Anda yakin ingin menghapus kandidat <b>{confirmDelete?.shortName}</b>?<br />
+              Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
-          {confirmDelete ? (
-            <div className="border-border/60 bg-muted/20 rounded-xl border p-3 text-sm">
-              <div className="font-medium">
-                Paslon {confirmDelete.number} - {confirmDelete.shortName}
-              </div>
-              <div className="text-muted-foreground mt-1 text-xs">
-                Ketua: {confirmDelete.ketuaName} - Wakil: {confirmDelete.wakilName}
-              </div>
-            </div>
-          ) : null}
-
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingId === confirmDelete?.id}>Batal</AlertDialogCancel>
+            <AlertDialogCancel disabled={!!deletingId}>Batal</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirmed}
-              disabled={!confirmDelete || deletingId === confirmDelete.id}
+              disabled={!!deletingId}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deletingId === confirmDelete?.id ? "Menghapus..." : "Hapus"}
+              {deletingId ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

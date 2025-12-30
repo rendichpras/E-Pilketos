@@ -1,15 +1,16 @@
 import {
   candidateRepository,
-  electionForCandidate,
-  logCandidateAudit,
   type CreateCandidateData,
   type UpdateCandidateData
 } from "./repository";
+import { sharedElectionRepository } from "../../db/repositories/election.shared";
+import { logAudit } from "../../shared/audit";
+import { AuditAction } from "../../shared/constants/audit-actions";
 import { NotFoundError, BadRequestError, ConflictError } from "../../core/errors";
 
 export const candidateService = {
   async getByElection(electionId: string) {
-    const election = await electionForCandidate.findById(electionId);
+    const election = await sharedElectionRepository.findById(electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -18,7 +19,7 @@ export const candidateService = {
   },
 
   async create(data: CreateCandidateData, adminId: string) {
-    const election = await electionForCandidate.findById(data.electionId);
+    const election = await sharedElectionRepository.findById(data.electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -30,7 +31,7 @@ export const candidateService = {
     try {
       const candidate = await candidateRepository.create(data);
 
-      await logCandidateAudit(adminId, data.electionId, "CREATE_CANDIDATE", {
+      await logAudit(adminId, data.electionId, AuditAction.CREATE_CANDIDATE, {
         candidateId: candidate.id,
         number: candidate.number
       });
@@ -54,7 +55,7 @@ export const candidateService = {
       throw new NotFoundError("Candidate");
     }
 
-    const election = await electionForCandidate.findById(current.electionId);
+    const election = await sharedElectionRepository.findById(current.electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -78,7 +79,7 @@ export const candidateService = {
         isActive: data.isActive ?? current.isActive
       });
 
-      await logCandidateAudit(adminId, current.electionId, "UPDATE_CANDIDATE", {
+      await logAudit(adminId, current.electionId, AuditAction.UPDATE_CANDIDATE, {
         candidateId: id
       });
 
@@ -101,7 +102,7 @@ export const candidateService = {
       throw new NotFoundError("Candidate");
     }
 
-    const election = await electionForCandidate.findById(current.electionId);
+    const election = await sharedElectionRepository.findById(current.electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -120,7 +121,7 @@ export const candidateService = {
       throw e;
     }
 
-    await logCandidateAudit(adminId, current.electionId, "DELETE_CANDIDATE", {
+    await logAudit(adminId, current.electionId, AuditAction.DELETE_CANDIDATE, {
       candidateId: id
     });
 
@@ -131,9 +132,9 @@ export const candidateService = {
     let election;
 
     if (electionSlug) {
-      election = await electionForCandidate.findBySlug(electionSlug);
+      election = await sharedElectionRepository.findBySlug(electionSlug);
     } else {
-      election = await electionForCandidate.findActive();
+      election = await sharedElectionRepository.findActive();
     }
 
     if (!election) {

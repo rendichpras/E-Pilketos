@@ -9,6 +9,7 @@ import { rateLimit, getClientIp, rateLimitConfig } from "../../core/middleware";
 import { env as appEnv } from "../../env";
 import { voteSchema } from "@/shared/validators";
 import { validateBody } from "../../core/validation";
+import { COOKIE_NAMES, getDeleteCookieOptions } from "../../utils/cookie";
 import { isHttpError, UnauthorizedError } from "../../core/errors";
 import { ERROR_CODES } from "@/shared/types";
 
@@ -48,7 +49,7 @@ voterApp.post(
     try {
       await votingService.vote(tokenId, electionId, sessionToken, candidatePairId);
 
-      deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+      deleteCookie(c, COOKIE_NAMES.VOTER_SESSION, getDeleteCookieOptions());
 
       return created(c, { success: true });
     } catch (e: unknown) {
@@ -58,7 +59,7 @@ voterApp.post(
           e.code === ERROR_CODES.TOKEN_INVALID ||
           e.code === ERROR_CODES.SESSION_EXPIRED)
       ) {
-        deleteCookie(c, "voter_session", { path: "/", domain: appEnv.COOKIE_DOMAIN });
+        deleteCookie(c, COOKIE_NAMES.VOTER_SESSION, getDeleteCookieOptions());
       }
 
       throw e;

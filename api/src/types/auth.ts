@@ -1,6 +1,8 @@
+export type AdminRole = "SUPER_ADMIN" | "COMMITTEE";
+
 export type AdminContext = {
   adminId: string;
-  role: "SUPER_ADMIN" | "COMMITTEE";
+  role: AdminRole;
 };
 
 export type VoterContext = {

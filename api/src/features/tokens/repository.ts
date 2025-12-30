@@ -1,7 +1,7 @@
 import { type SQL, asc, and, eq, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "../../db/client";
-import { elections, tokens, auditLogs, voterSessions } from "../../db/schema";
+import { tokens, voterSessions } from "../../db/schema";
 import { redactInvalidToken } from "../../utils/tokenRedact";
 
 export type TokenStatus = "UNUSED" | "USED" | "INVALIDATED";
@@ -113,24 +113,3 @@ export const tokenRepository = {
     return updated ?? null;
   }
 };
-
-export const electionForToken = {
-  async findById(id: string) {
-    const [row] = await db.select().from(elections).where(eq(elections.id, id)).limit(1);
-    return row ?? null;
-  }
-};
-
-export async function logTokenAudit(
-  adminId: string,
-  electionId: string,
-  action: string,
-  metadata?: Record<string, unknown>
-) {
-  await db.insert(auditLogs).values({
-    adminId,
-    electionId,
-    action,
-    metadata: metadata ?? null
-  });
-}

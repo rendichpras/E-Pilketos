@@ -18,7 +18,6 @@
     "format:check": "prettier \"**/*.{js,jsx,ts,tsx,md,mdx,json,css,scss,html}\" --check"
   },
   "dependencies": {
-
     "@hono/node-server": "^1.19.7",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",

@@ -1,7 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { admins, adminSessions } from "../../../db/schema";
-import { hashSessionToken } from "../../../core/security/session-token";
+import { hashSessionToken } from "../../../utils/session";
 
 export const adminRepository = {
   async findByUsername(username: string) {

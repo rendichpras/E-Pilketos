@@ -1,9 +1,7 @@
-import {
-  tokenRepository,
-  electionForToken,
-  logTokenAudit,
-  type ListTokensQuery
-} from "./repository";
+import { tokenRepository, type ListTokensQuery } from "./repository";
+import { sharedElectionRepository } from "../../db/repositories/election.shared";
+import { logAudit } from "../../shared/audit";
+import { AuditAction } from "../../shared/constants/audit-actions";
 import { NotFoundError, BadRequestError } from "../../core/errors";
 
 export const tokenService = {
@@ -13,7 +11,7 @@ export const tokenService = {
     batchLabel: string | undefined,
     adminId: string
   ) {
-    const election = await electionForToken.findById(electionId);
+    const election = await sharedElectionRepository.findById(electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -24,7 +22,7 @@ export const tokenService = {
 
     const createdCount = await tokenRepository.generate(electionId, count, batchLabel);
 
-    await logTokenAudit(adminId, electionId, "GENERATE_TOKENS", {
+    await logAudit(adminId, electionId, AuditAction.GENERATE_TOKENS, {
       count,
       batchLabel: batchLabel ?? null
     });
@@ -37,7 +35,7 @@ export const tokenService = {
   },
 
   async list(electionId: string, query: ListTokensQuery) {
-    const election = await electionForToken.findById(electionId);
+    const election = await sharedElectionRepository.findById(electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -68,7 +66,7 @@ export const tokenService = {
       throw new BadRequestError("Tidak bisa invalidate token yang sudah digunakan");
     }
 
-    const election = await electionForToken.findById(current.electionId);
+    const election = await sharedElectionRepository.findById(current.electionId);
     if (!election) {
       throw new NotFoundError("Election");
     }
@@ -79,7 +77,7 @@ export const tokenService = {
 
     const updated = await tokenRepository.invalidate(id);
 
-    await logTokenAudit(adminId, current.electionId, "INVALIDATE_TOKEN", {
+    await logAudit(adminId, current.electionId, AuditAction.INVALIDATE_TOKEN, {
       tokenId: id
     });
 

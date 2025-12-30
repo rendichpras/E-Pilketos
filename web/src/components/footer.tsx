@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
-
-const footerLinks = [
-  { href: "/#kandidat", label: "Kandidat" },
-  { href: "/hasil", label: "Hasil" },
-  { href: "/vote", label: "Mulai Memilih" }
-];
+import { NAV_LINKS } from "@/lib/config/routes";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -33,7 +28,7 @@ export function Footer() {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 text-xs md:justify-end">
-            {footerLinks.map((item) => (
+            {NAV_LINKS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

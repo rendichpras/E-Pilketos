@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { hasRedis, getRedisClient } from "../../utils/redis";
 import type { AppEnv } from "../../app-env";
 import { success } from "../../core/response";
 import { db } from "../../db/client";
@@ -31,6 +32,26 @@ healthApp.get("/ready", async (c) => {
       latency: Date.now() - dbStart,
       error: err instanceof Error ? err.message : "Unknown error"
     };
+  }
+
+  if (hasRedis()) {
+    const redisStart = Date.now();
+    try {
+      const client = await getRedisClient();
+      if (!client) throw new Error("Failed to get client");
+      await client.ping();
+      checks.redis = {
+        status: "healthy",
+        latency: Date.now() - redisStart
+      };
+    } catch (err) {
+      overall = false;
+      checks.redis = {
+        status: "unhealthy",
+        latency: Date.now() - redisStart,
+        error: err instanceof Error ? err.message : String(err)
+      };
+    }
   }
 
   const status = overall ? 200 : 503;

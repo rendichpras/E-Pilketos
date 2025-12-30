@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 
 const AdminContext = createContext<AdminUser | null>(null);
 

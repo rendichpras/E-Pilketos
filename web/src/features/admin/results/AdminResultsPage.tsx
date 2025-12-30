@@ -1,20 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-import { ApiError } from "@/lib/api/client";
-import { adminApi } from "@/lib/api";
-import type { AdminResultsResponse, Election } from "@/lib/types";
-import { cn } from "@/lib/cn";
-
-import { toast } from "sonner";
-
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 import {
   Card,
   CardHeader,
@@ -23,7 +10,6 @@ import {
   CardContent,
   CardFooter
 } from "@/components/ui/card";
-
 import {
   Select,
   SelectTrigger,
@@ -31,136 +17,59 @@ import {
   SelectContent,
   SelectItem
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BarChart3, RefreshCw } from "lucide-react";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
-
-import { BarChart3, RefreshCw, Trophy, Users2, KeyRound } from "lucide-react";
-
-type PageState = {
-  loading: boolean;
-  error: string | null;
-  elections: Election[];
-  selectedElectionId: string | null;
-  results: AdminResultsResponse | null;
-};
-
-function fmtId(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
-}
+import { useElections } from "@/features/admin/elections/hooks/useElections";
+import { useResults } from "./hooks/useResults";
+import { ResultsChart } from "./components/ResultsChart";
+import { StatsBadges } from "./components/StatsBadges";
 
 export default function AdminResultsPage() {
-  const [page, setPage] = useState<PageState>({
-    loading: true,
-    error: null,
-    elections: [],
-    selectedElectionId: null,
-    results: null
-  });
+  const {
+    elections,
+    loading: electionsLoading,
+    refresh: refreshElections,
+    error: electionsError
+  } = useElections();
 
-  async function loadResults(electionId: string) {
-    try {
-      const res = await adminApi.results.getAdminResults(electionId);
-      setPage((prev) => ({ ...prev, results: res, error: null }));
-    } catch (err: unknown) {
-      const message =
-        err instanceof ApiError ? err.message || "Gagal memuat hasil." : "Gagal memuat hasil.";
-      setPage((prev) => ({ ...prev, error: message, results: null }));
-      toast.error(message);
-    }
-  }
+  const [selectedElectionId, setSelectedElectionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Determine default election ID derived from loaded elections
+  const defaultElectionId = useMemo(() => {
+    if (elections.length === 0) return null;
+    const active = elections.find((e) => e.status === "ACTIVE");
+    const closed = elections.find((e) => e.status === "CLOSED");
+    return active?.id ?? closed?.id ?? elections[0]?.id;
+  }, [elections]);
 
-    async function init() {
-      try {
-        const elections = await adminApi.elections.list();
+  // Use selected ID if user engaged, otherwise fallback to default
+  const currentElectionId = selectedElectionId ?? defaultElectionId;
 
-        const defaultElection =
-          elections.find((e) => e.status === "ACTIVE") ??
-          elections.find((e) => e.status === "CLOSED") ??
-          elections[0] ??
-          null;
-
-        if (cancelled) return;
-
-        setPage((prev) => ({
-          ...prev,
-          elections,
-          selectedElectionId: defaultElection?.id ?? null,
-          loading: false
-        }));
-
-        if (defaultElection?.id) {
-          await loadResults(defaultElection.id);
-        }
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const message =
-          err instanceof ApiError
-            ? err.message || "Gagal memuat daftar pemilihan."
-            : "Gagal memuat daftar pemilihan.";
-        setPage((prev) => ({ ...prev, loading: false, error: message }));
-        toast.error(message);
-      }
-    }
-
-    init();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    results,
+    loading: resultsLoading,
+    error: resultsError,
+    refresh: refreshResults
+  } = useResults(currentElectionId);
 
   const selectedElection = useMemo(
-    () => page.elections.find((e) => e.id === page.selectedElectionId) ?? null,
-    [page.elections, page.selectedElectionId]
+    () => elections.find((e) => e.id === currentElectionId) ?? null,
+    [elections, currentElectionId]
   );
 
-  const totalVotes = page.results?.totalVotes ?? 0;
-
-  const candidateRows = useMemo(() => {
-    const rows = page.results?.results ?? [];
-    return rows
-      .map((r) => ({
-        candidateId: r.candidate.id,
-        number: r.candidate.number,
-        shortName: r.candidate.shortName,
-        ketuaName: r.candidate.ketuaName,
-        wakilName: r.candidate.wakilName,
-        totalVotes: r.voteCount
-      }))
-      .slice()
-      .sort((a, b) => b.totalVotes - a.totalVotes);
-  }, [page.results]);
-
-  async function onElectionChange(id: string) {
-    setPage((prev) => ({
-      ...prev,
-      selectedElectionId: id || null,
-      results: null,
-      error: null
-    }));
-
-    if (id) {
-      await loadResults(id);
-    }
+  function handleElectionChange(id: string) {
+    setSelectedElectionId(id || null);
   }
 
-  async function refresh() {
-    if (!page.selectedElectionId) return;
-    await loadResults(page.selectedElectionId);
+  function handleRefresh() {
+    refreshElections();
+    refreshResults();
   }
 
-  if (page.loading) {
+  if (electionsLoading && !selectedElection) {
     return (
       <div className="space-y-6">
         <header className="space-y-3">
@@ -168,7 +77,6 @@ export default function AdminResultsPage() {
           <Skeleton className="h-8 w-56" />
           <Skeleton className="h-4 w-72" />
         </header>
-
         <Card className="border-border/70 bg-card/90 shadow-sm">
           <CardHeader className="border-border/60 border-b pb-3">
             <Skeleton className="h-5 w-56" />
@@ -183,8 +91,6 @@ export default function AdminResultsPage() {
       </div>
     );
   }
-
-  const tokenStats = page.results?.tokenStats;
 
   return (
     <div className="space-y-6">
@@ -208,8 +114,8 @@ export default function AdminResultsPage() {
               variant="outline"
               size="sm"
               className="h-8 rounded-full px-3 text-[11px]"
-              onClick={refresh}
-              disabled={!page.selectedElectionId}
+              onClick={handleRefresh}
+              disabled={!currentElectionId}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
@@ -218,10 +124,10 @@ export default function AdminResultsPage() {
         </div>
       </header>
 
-      {page.error && (
+      {(electionsError || resultsError) && (
         <Alert variant="destructive" className="border-destructive/60 bg-destructive/10">
           <AlertTitle className="text-sm">Terjadi kesalahan</AlertTitle>
-          <AlertDescription className="text-xs">{page.error}</AlertDescription>
+          <AlertDescription className="text-xs">{electionsError || resultsError}</AlertDescription>
         </Alert>
       )}
 
@@ -237,20 +143,20 @@ export default function AdminResultsPage() {
 
             <div className="w-full md:max-w-md">
               <Select
-                value={page.selectedElectionId ?? ""}
-                onValueChange={onElectionChange}
-                disabled={page.elections.length === 0}
+                value={currentElectionId ?? ""}
+                onValueChange={handleElectionChange}
+                disabled={elections.length === 0}
               >
-                <SelectTrigger className="h-9 w-full min-w-0 text-xs **:data-[slot='select-value']:truncate">
+                <SelectTrigger className="h-9 w-full min-w-0 text-xs *:data-[slot='select-value']:truncate">
                   <SelectValue placeholder="Tidak ada pemilihan" />
                 </SelectTrigger>
                 <SelectContent>
-                  {page.elections.length === 0 && (
+                  {elections.length === 0 && (
                     <SelectItem value="__no_elections__" disabled>
                       Tidak ada pemilihan
                     </SelectItem>
                   )}
-                  {page.elections.map((e) => (
+                  {elections.map((e) => (
                     <SelectItem key={e.id} value={e.id} className="text-xs">
                       {e.name} ({e.status})
                     </SelectItem>
@@ -269,203 +175,38 @@ export default function AdminResultsPage() {
             </div>
           </div>
 
-          {page.results ? (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-                <KeyRound className="mr-1 h-3.5 w-3.5" />
-                Token: {tokenStats?.total ?? 0}
-              </Badge>
-              <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-                Used: {tokenStats?.used ?? 0}
-              </Badge>
-              <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-                Unused: {tokenStats?.unused ?? 0}
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-destructive/60 bg-destructive/10 text-destructive rounded-full text-[11px] font-medium"
-              >
-                Invalid: {tokenStats?.invalidated ?? 0}
-              </Badge>
-              <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-                <Users2 className="mr-1 h-3.5 w-3.5" />
-                Total suara: {page.results.totalVotes}
-              </Badge>
-            </div>
+          {results ? (
+            <StatsBadges tokenStats={results.tokenStats} totalVotes={results.totalVotes} />
           ) : null}
         </CardHeader>
 
         <CardContent>
-          {!page.selectedElectionId ? (
+          {!currentElectionId ? (
             <div className="border-border/60 bg-muted/30 text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-sm">
               Buat/pilih pemilihan terlebih dahulu untuk melihat hasil.
             </div>
-          ) : !page.results ? (
-            <div className="space-y-3">
+          ) : resultsLoading ? (
+            <div className="space-y-3 py-6">
               <Skeleton className="h-24 w-full rounded-xl" />
               <Skeleton className="h-40 w-full rounded-xl" />
             </div>
-          ) : candidateRows.length === 0 ? (
-            <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 text-center">
-              <Trophy className="text-muted-foreground h-8 w-8" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Belum ada kandidat</p>
-                <p className="text-muted-foreground text-xs">
-                  Kandidat belum terdaftar untuk pemilihan ini.
-                </p>
-              </div>
-            </div>
+          ) : results ? (
+            <ResultsChart results={results} />
           ) : (
-            <div className="space-y-3">
-              <div className="sm:hidden">
-                <div className="text-muted-foreground mb-2 text-[11px]">
-                  update: {fmtId(page.results.election.updatedAt)}
-                </div>
-
-                <div className="space-y-2">
-                  {candidateRows.map((c, idx) => {
-                    const pct =
-                      totalVotes > 0 ? Math.round((c.totalVotes / totalVotes) * 1000) / 10 : 0;
-
-                    return (
-                      <div
-                        key={c.candidateId}
-                        className={cn(
-                          "border-border/60 rounded-2xl border p-4",
-                          idx === 0 && "bg-emerald-500/5"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <Badge variant="outline" className="rounded-full text-xs">
-                            {c.number}
-                          </Badge>
-
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <p className="truncate text-sm font-semibold">{c.shortName}</p>
-                              {idx === 0 ? (
-                                <Badge className="rounded-full bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/10">
-                                  Teratas
-                                </Badge>
-                              ) : null}
-                            </div>
-
-                            <div className="text-muted-foreground text-[11px] leading-snug">
-                              Ketua:{" "}
-                              <span className="text-foreground font-medium">{c.ketuaName}</span>
-                            </div>
-                            <div className="text-muted-foreground text-[11px] leading-snug">
-                              Wakil:{" "}
-                              <span className="text-foreground font-medium">{c.wakilName}</span>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="text-base leading-none font-semibold">
-                              {c.totalVotes}
-                            </div>
-                            <div className="text-muted-foreground text-[11px]">suara</div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 space-y-2">
-                          <div className="text-muted-foreground flex items-center justify-between text-[11px]">
-                            <span>{pct}%</span>
-                            <span className="font-mono">
-                              {totalVotes > 0 ? `${c.totalVotes}/${totalVotes}` : "-"}
-                            </span>
-                          </div>
-                          <Progress value={pct} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="border-border/60 hidden overflow-x-auto rounded-2xl border sm:block">
-                <Table className="min-w-[720px]">
-                  <TableHeader>
-                    <TableRow className="bg-muted/40">
-                      <TableHead className="w-[70px] text-xs">No</TableHead>
-                      <TableHead className="text-xs">Paslon</TableHead>
-                      <TableHead className="w-[140px] text-right text-xs">Suara</TableHead>
-                      <TableHead className="w-[220px] text-xs">Persent</TableHead>
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {candidateRows.map((c, idx) => {
-                      const pct =
-                        totalVotes > 0 ? Math.round((c.totalVotes / totalVotes) * 1000) / 10 : 0;
-
-                      return (
-                        <TableRow
-                          key={c.candidateId}
-                          className={cn(idx === 0 && "bg-emerald-500/5")}
-                        >
-                          <TableCell className="align-top">
-                            <Badge variant="outline" className="rounded-full text-xs">
-                              {c.number}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="align-top">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold">{c.shortName}</p>
-                                {idx === 0 ? (
-                                  <Badge className="rounded-full bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/10">
-                                    Teratas
-                                  </Badge>
-                                ) : null}
-                              </div>
-
-                              <div className="text-muted-foreground text-[11px]">
-                                Ketua:{" "}
-                                <span className="text-foreground font-medium">{c.ketuaName}</span> -
-                                Wakil:{" "}
-                                <span className="text-foreground font-medium">{c.wakilName}</span>
-                              </div>
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-right align-top">
-                            <div className="text-sm font-semibold">{c.totalVotes}</div>
-                            <div className="text-muted-foreground text-[11px]">
-                              update: {fmtId(page.results!.election.updatedAt)}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="align-top">
-                            <div className="space-y-2">
-                              <div className="text-muted-foreground flex items-center justify-between text-[11px]">
-                                <span>{pct}%</span>
-                                <span className="font-mono">
-                                  {totalVotes > 0 ? `${c.totalVotes}/${totalVotes}` : "-"}
-                                </span>
-                              </div>
-                              <Progress value={pct} />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+            <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 text-center">
+              {/* Empty state handled in subcomponent or not needed if results guaranteed */}
             </div>
           )}
         </CardContent>
 
-        {page.results ? (
+        {results ? (
           <CardFooter className="border-border/60 text-muted-foreground border-t pt-4 text-xs">
             <div className="flex flex-wrap items-center gap-1">
               <span>Pemilihan:</span>
-              <span className="font-medium">{page.results.election.slug}</span>
+              <span className="font-medium">{results.election.slug}</span>
               <span className="mx-1">-</span>
               <span>Status:</span>
-              <span className="font-medium">{page.results.election.status}</span>
+              <span className="font-medium">{results.election.status}</span>
             </div>
           </CardFooter>
         ) : null}

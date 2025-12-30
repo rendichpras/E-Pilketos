@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 
 import {
   CommandDialog,

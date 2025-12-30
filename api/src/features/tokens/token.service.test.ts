@@ -6,15 +6,22 @@ vi.mock("./repository", () => ({
     findByElection: vi.fn(),
     generate: vi.fn(),
     invalidate: vi.fn()
-  },
-  electionForToken: {
+  }
+}));
+
+vi.mock("../../db/repositories/election.shared", () => ({
+  sharedElectionRepository: {
     findById: vi.fn()
-  },
-  logTokenAudit: vi.fn()
+  }
+}));
+
+vi.mock("../../shared/audit", () => ({
+  logAudit: vi.fn()
 }));
 
 import { tokenService } from "./service";
-import { tokenRepository, electionForToken } from "./repository";
+import { tokenRepository } from "./repository";
+import { sharedElectionRepository } from "../../db/repositories/election.shared";
 import { NotFoundError, BadRequestError } from "../../core/errors";
 
 describe("tokenService", () => {
@@ -48,7 +55,7 @@ describe("tokenService", () => {
 
   describe("generate", () => {
     it("generates tokens for DRAFT election", async () => {
-      vi.mocked(electionForToken.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(tokenRepository.generate).mockResolvedValue(100);
 
       const result = await tokenService.generate("election-123", 100, "batch-1", "admin-123");
@@ -58,7 +65,7 @@ describe("tokenService", () => {
     });
 
     it("throws NotFoundError for non-existent election", async () => {
-      vi.mocked(electionForToken.findById).mockResolvedValue(null as any);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(null as any);
 
       await expect(
         tokenService.generate("nonexistent", 100, undefined, "admin-123")
@@ -67,7 +74,7 @@ describe("tokenService", () => {
 
     it("throws BadRequestError for non-DRAFT election", async () => {
       const activeElection = { ...mockElection, status: "ACTIVE" as const };
-      vi.mocked(electionForToken.findById).mockResolvedValue(activeElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(activeElection);
 
       await expect(
         tokenService.generate("election-123", 100, undefined, "admin-123")
@@ -75,7 +82,7 @@ describe("tokenService", () => {
     });
 
     it("handles undefined batch label", async () => {
-      vi.mocked(electionForToken.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(tokenRepository.generate).mockResolvedValue(50);
 
       const result = await tokenService.generate("election-123", 50, undefined, "admin-123");
@@ -86,7 +93,7 @@ describe("tokenService", () => {
 
   describe("list", () => {
     it("returns tokens with pagination", async () => {
-      vi.mocked(electionForToken.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(tokenRepository.findByElection).mockResolvedValue({
         tokens: [mockToken],
         total: 1
@@ -100,7 +107,7 @@ describe("tokenService", () => {
     });
 
     it("throws NotFoundError for non-existent election", async () => {
-      vi.mocked(electionForToken.findById).mockResolvedValue(null as any);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(null as any);
 
       await expect(tokenService.list("nonexistent", { page: 1, limit: 20 })).rejects.toThrow(
         NotFoundError
@@ -111,7 +118,7 @@ describe("tokenService", () => {
   describe("invalidate", () => {
     it("invalidates unused token", async () => {
       vi.mocked(tokenRepository.findById).mockResolvedValue(mockToken);
-      vi.mocked(electionForToken.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(tokenRepository.invalidate).mockResolvedValue({
         ...mockToken,
         status: "INVALIDATED"
@@ -142,7 +149,7 @@ describe("tokenService", () => {
     it("throws BadRequestError for non-DRAFT election", async () => {
       const activeElection = { ...mockElection, status: "ACTIVE" as const };
       vi.mocked(tokenRepository.findById).mockResolvedValue(mockToken);
-      vi.mocked(electionForToken.findById).mockResolvedValue(activeElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(activeElection);
 
       await expect(tokenService.invalidate("token-123", "admin-123")).rejects.toThrow(
         BadRequestError

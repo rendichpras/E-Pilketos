@@ -1,4 +1,4 @@
-import type { Election } from "@/lib/types";
+import type { Election } from "@/shared/types";
 
 export type ElectionDisplayStatus = "NONE" | "UPCOMING" | "OPEN" | "CLOSED";
 

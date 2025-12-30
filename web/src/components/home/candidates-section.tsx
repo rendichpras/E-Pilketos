@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CandidatePair } from "@/lib/types";
+import type { CandidatePair } from "@/shared/types";
 
 import { CandidatePhoto, CandidateInfo, CandidateDrawer } from "@/components/candidate";
 import { Badge } from "@/components/ui/badge";

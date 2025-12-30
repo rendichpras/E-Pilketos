@@ -9,89 +9,63 @@ export type ServerApiResponse<T> = ApiResponse<T>;
 
 export { ApiError as ServerApiError };
 
+type RequestOptions = {
+  cache?: RequestCache;
+  revalidate?: number | false;
+  useCookies?: boolean;
+};
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {}
+): Promise<T> {
+  const { useCookies = true, cache, revalidate } = options;
+  let cookieHeader = "";
+
+  if (useCookies) {
+    const cookieStore = await cookies();
+    cookieHeader = cookieStore.toString();
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookieHeader ? { Cookie: cookieHeader } : {})
+    },
+    credentials: useCookies ? "include" : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    cache,
+    next: revalidate !== undefined ? { revalidate } : undefined
+  });
+
+  return parseApiResponse<T>(res);
+}
+
 export async function serverGet<T>(
   path: string,
   options: { cache?: RequestCache; revalidate?: number | false } = {}
 ): Promise<T> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {})
-    },
-    credentials: "include",
-    cache: options.cache,
-    next: options.revalidate !== undefined ? { revalidate: options.revalidate } : undefined
-  });
-
-  return parseApiResponse<T>(res);
+  return request<T>("GET", path, undefined, options);
 }
 
 export async function serverPost<T>(path: string, body?: unknown): Promise<T> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {})
-    },
-    credentials: "include",
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
-
-  return parseApiResponse<T>(res);
+  return request<T>("POST", path, body);
 }
 
 export async function serverPut<T>(path: string, body?: unknown): Promise<T> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {})
-    },
-    credentials: "include",
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
-
-  return parseApiResponse<T>(res);
+  return request<T>("PUT", path, body);
 }
 
 export async function serverDelete<T>(path: string): Promise<T> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {})
-    },
-    credentials: "include"
-  });
-
-  return parseApiResponse<T>(res);
+  return request<T>("DELETE", path);
 }
 
 export async function publicGet<T>(
   path: string,
   options: { cache?: RequestCache; revalidate?: number | false } = {}
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    cache: options.cache,
-    next: options.revalidate !== undefined ? { revalidate: options.revalidate } : undefined
-  });
-
-  return parseApiResponse<T>(res);
+  return request<T>("GET", path, undefined, { ...options, useCookies: false });
 }

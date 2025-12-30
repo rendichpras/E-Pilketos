@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { Token, TokenStatus } from "@/lib/types";
+import type { Token, TokenStatus } from "@/shared/types";
 
 const COLUMNS = 3;
 const ROWS_PER_PAGE = 11;

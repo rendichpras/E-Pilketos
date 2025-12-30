@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ApiError } from "@/lib/api/client";
 import { voterApi } from "@/lib/api/voter";
-import { ERROR_CODES } from "@/lib/types";
+import { ERROR_CODES } from "@/shared/types";
 
 import { VoteShell } from "@/components/vote/vote-shell";
 import { VoteReasonAlert } from "@/components/vote/vote-reason-alert";

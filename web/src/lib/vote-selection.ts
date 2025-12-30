@@ -1,6 +1,6 @@
 "use client";
 
-import type { CandidatePair, Election } from "@/lib/types";
+import type { CandidatePair, Election } from "@/shared/types";
 
 const KEY = "vote_selection_v2";
 const TTL_MS = 10 * 60 * 1000;

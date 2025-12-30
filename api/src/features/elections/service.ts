@@ -2,8 +2,9 @@ import { db } from "../../db/client";
 import { elections } from "../../db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import { electionRepository, type CreateElectionData, type UpdateElectionData } from "./repository";
-import { NotFoundError, BadRequestError, ConflictError } from "../../core/errors";
+import { NotFoundError, BadRequestError, handlePgError } from "../../core/errors";
 import { logAudit } from "../../shared/audit";
+import { AuditAction } from "../../shared/constants/audit-actions";
 
 export const electionService = {
   async getAll() {
@@ -29,17 +30,18 @@ export const electionService = {
     try {
       const election = await electionRepository.create(data);
 
-      await logAudit(adminId, election.id, "CREATE_ELECTION", {
+      await logAudit(adminId, election.id, AuditAction.CREATE_ELECTION, {
         slug: election.slug
       });
 
       return election;
     } catch (e: unknown) {
-      const pgErr = e as { code?: string; constraint?: string };
-      if (pgErr?.code === "23505" && pgErr?.constraint === "elections_slug_unique") {
-        throw new ConflictError("Slug sudah digunakan");
-      }
-      throw e;
+      handlePgError(e, {
+        resourceName: "Election",
+        constraintMessages: {
+          elections_slug_unique: "Slug sudah digunakan"
+        }
+      });
     }
   },
 
@@ -75,7 +77,7 @@ export const electionService = {
       endAt: current.status === "DRAFT" ? data.endAt : undefined
     });
 
-    await logAudit(adminId, id, "UPDATE_ELECTION", {
+    await logAudit(adminId, id, AuditAction.UPDATE_ELECTION, {
       fields: Object.keys(data)
     });
 
@@ -110,17 +112,18 @@ export const electionService = {
           .where(eq(elections.id, id));
       });
 
-      await logAudit(adminId, id, "ACTIVATE_ELECTION", {
+      await logAudit(adminId, id, AuditAction.ACTIVATE_ELECTION, {
         slug: target.slug
       });
 
       return electionRepository.findById(id);
     } catch (e: unknown) {
-      const pgErr = e as { code?: string; constraint?: string };
-      if (pgErr?.code === "23505" && pgErr?.constraint === "elections_single_active_unique") {
-        throw new ConflictError("Masih ada pemilihan lain yang ACTIVE. Coba lagi.");
-      }
-      throw e;
+      handlePgError(e, {
+        resourceName: "Election",
+        constraintMessages: {
+          elections_single_active_unique: "Masih ada pemilihan lain yang ACTIVE. Coba lagi."
+        }
+      });
     }
   },
 
@@ -136,7 +139,7 @@ export const electionService = {
 
     const updated = await electionRepository.updateStatus(id, "CLOSED");
 
-    await logAudit(adminId, id, "CLOSE_ELECTION", {
+    await logAudit(adminId, id, AuditAction.CLOSE_ELECTION, {
       slug: target.slug
     });
 
@@ -155,7 +158,7 @@ export const electionService = {
 
     const updated = await electionRepository.updateStatus(id, "ARCHIVED");
 
-    await logAudit(adminId, id, "ARCHIVE_ELECTION", {
+    await logAudit(adminId, id, AuditAction.ARCHIVE_ELECTION, {
       slug: target.slug
     });
 
@@ -174,7 +177,7 @@ export const electionService = {
 
     const updated = await electionRepository.setResultPublic(id, true);
 
-    await logAudit(adminId, id, "PUBLISH_RESULTS", {
+    await logAudit(adminId, id, AuditAction.PUBLISH_RESULTS, {
       slug: target.slug
     });
 
@@ -193,7 +196,7 @@ export const electionService = {
 
     const updated = await electionRepository.setResultPublic(id, false);
 
-    await logAudit(adminId, id, "HIDE_RESULTS", {
+    await logAudit(adminId, id, AuditAction.HIDE_RESULTS, {
       slug: target.slug
     });
 

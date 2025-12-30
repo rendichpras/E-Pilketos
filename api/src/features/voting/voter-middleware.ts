@@ -7,7 +7,7 @@ import { voterSessions, tokens } from "../../db/schema";
 import { env as appEnv } from "../../env";
 import { ERROR_CODES } from "@/shared/types";
 import { ConflictError, UnauthorizedError } from "../../core/errors";
-import { hashSessionToken } from "../../core/security/session-token";
+import { hashSessionToken } from "../../utils/session";
 
 export async function voterAuth(c: Context<AppEnv>, next: Next) {
   const sessionToken = getCookie(c, "voter_session");

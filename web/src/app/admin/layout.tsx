@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
 import { serverGet } from "@/lib/api/server";
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 import { AdminClientWrapper } from "./admin-client-wrapper";
 
 type AdminLayoutProps = {

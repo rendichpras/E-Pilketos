@@ -10,6 +10,11 @@ import { UnauthorizedError } from "../../../core/errors";
 import { validateBody } from "../../../core/validation";
 import { adminLoginSchema } from "@/shared/validators";
 import { ERROR_CODES } from "@/shared/types";
+import {
+  COOKIE_NAMES,
+  getSessionCookieOptions,
+  getDeleteCookieOptions
+} from "../../../utils/cookie";
 
 export const adminAuthApp = new Hono<AppEnv>();
 
@@ -24,29 +29,26 @@ adminAuthApp.post(
   async (c) => {
     const { username, password } = await validateBody(c, adminLoginSchema);
 
-    const { admin, sessionToken, expiresAt: _expiresAt } = await adminAuthService.login(username, password);
+    const {
+      admin,
+      sessionToken,
+      expiresAt: _expiresAt
+    } = await adminAuthService.login(username, password);
 
-    setCookie(c, "admin_session", sessionToken, {
-      httpOnly: true,
-      secure: env.COOKIE_SECURE ?? env.NODE_ENV === "production",
-      sameSite: env.COOKIE_SAMESITE,
-      domain: env.COOKIE_DOMAIN,
-      path: "/",
-      maxAge: env.ADMIN_SESSION_TTL_SEC
-    });
+    setCookie(c, COOKIE_NAMES.ADMIN_SESSION, sessionToken, getSessionCookieOptions("admin"));
 
     return success(c, admin);
   }
 );
 
 adminAuthApp.post("/logout", async (c) => {
-  const sessionToken = getCookie(c, "admin_session");
+  const sessionToken = getCookie(c, COOKIE_NAMES.ADMIN_SESSION);
 
   if (sessionToken) {
     await adminAuthService.logout(sessionToken);
   }
 
-  deleteCookie(c, "admin_session", { path: "/", domain: env.COOKIE_DOMAIN });
+  deleteCookie(c, COOKIE_NAMES.ADMIN_SESSION, getDeleteCookieOptions());
 
   return success(c, { success: true });
 });

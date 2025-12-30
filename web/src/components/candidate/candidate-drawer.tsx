@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { CandidatePair } from "@/lib/types";
+import type { CandidatePair } from "@/shared/types";
 
 import { Button } from "@/components/ui/button";
 import {

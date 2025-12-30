@@ -8,17 +8,24 @@ vi.mock("./repository", () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn()
-  },
-  electionForCandidate: {
+  }
+}));
+
+vi.mock("../../db/repositories/election.shared", () => ({
+  sharedElectionRepository: {
     findById: vi.fn(),
     findBySlug: vi.fn(),
     findActive: vi.fn()
-  },
-  logCandidateAudit: vi.fn()
+  }
+}));
+
+vi.mock("../../shared/audit", () => ({
+  logAudit: vi.fn()
 }));
 
 import { candidateService } from "./service";
-import { candidateRepository, electionForCandidate } from "./repository";
+import { candidateRepository } from "./repository";
+import { sharedElectionRepository } from "../../db/repositories/election.shared";
 import { NotFoundError, BadRequestError, ConflictError as _ConflictError } from "../../core/errors";
 
 describe("candidateService", () => {
@@ -59,7 +66,7 @@ describe("candidateService", () => {
 
   describe("getByElection", () => {
     it("returns election with candidates", async () => {
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(candidateRepository.findByElection).mockResolvedValue([mockCandidate]);
 
       const result = await candidateService.getByElection("election-123");
@@ -69,7 +76,7 @@ describe("candidateService", () => {
     });
 
     it("throws NotFoundError for non-existent election", async () => {
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(null as any);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(null as any);
 
       await expect(candidateService.getByElection("nonexistent")).rejects.toThrow(NotFoundError);
     });
@@ -77,7 +84,7 @@ describe("candidateService", () => {
 
   describe("create", () => {
     it("creates candidate for DRAFT election", async () => {
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(candidateRepository.create).mockResolvedValue(mockCandidate);
 
       const result = await candidateService.create(
@@ -98,7 +105,7 @@ describe("candidateService", () => {
 
     it("throws BadRequestError for non-DRAFT election", async () => {
       const activeElection = { ...mockElection, status: "ACTIVE" as const };
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(activeElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(activeElection);
 
       await expect(
         candidateService.create(
@@ -120,7 +127,7 @@ describe("candidateService", () => {
   describe("update", () => {
     it("updates candidate for DRAFT election", async () => {
       vi.mocked(candidateRepository.findById).mockResolvedValue(mockCandidate);
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(candidateRepository.update).mockResolvedValue({
         ...mockCandidate,
         shortName: "UPDATED"
@@ -147,7 +154,7 @@ describe("candidateService", () => {
   describe("delete", () => {
     it("deletes candidate for DRAFT election", async () => {
       vi.mocked(candidateRepository.findById).mockResolvedValue(mockCandidate);
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(mockElection);
       vi.mocked(candidateRepository.delete).mockResolvedValue(undefined);
 
       const result = await candidateService.delete("candidate-123", "admin-123");
@@ -158,7 +165,7 @@ describe("candidateService", () => {
     it("throws BadRequestError for non-DRAFT election", async () => {
       const activeElection = { ...mockElection, status: "ACTIVE" as const };
       vi.mocked(candidateRepository.findById).mockResolvedValue(mockCandidate);
-      vi.mocked(electionForCandidate.findById).mockResolvedValue(activeElection);
+      vi.mocked(sharedElectionRepository.findById).mockResolvedValue(activeElection);
 
       await expect(candidateService.delete("candidate-123", "admin-123")).rejects.toThrow(
         BadRequestError
@@ -169,7 +176,7 @@ describe("candidateService", () => {
   describe("getPublicCandidates", () => {
     it("returns candidates for active election", async () => {
       const activeElection = { ...mockElection, status: "ACTIVE" as const };
-      vi.mocked(electionForCandidate.findActive).mockResolvedValue(activeElection);
+      vi.mocked(sharedElectionRepository.findActive).mockResolvedValue(activeElection);
       vi.mocked(candidateRepository.findActiveByElection).mockResolvedValue([mockCandidate]);
 
       const result = await candidateService.getPublicCandidates();
@@ -179,7 +186,7 @@ describe("candidateService", () => {
     });
 
     it("returns empty when no active election", async () => {
-      vi.mocked(electionForCandidate.findActive).mockResolvedValue(null as any);
+      vi.mocked(sharedElectionRepository.findActive).mockResolvedValue(null as any);
 
       const result = await candidateService.getPublicCandidates();
 
@@ -188,12 +195,12 @@ describe("candidateService", () => {
     });
 
     it("finds election by slug when provided", async () => {
-      vi.mocked(electionForCandidate.findBySlug).mockResolvedValue(mockElection);
+      vi.mocked(sharedElectionRepository.findBySlug).mockResolvedValue(mockElection);
       vi.mocked(candidateRepository.findActiveByElection).mockResolvedValue([mockCandidate]);
 
       await candidateService.getPublicCandidates("pilketos-2024");
 
-      expect(electionForCandidate.findBySlug).toHaveBeenCalledWith("pilketos-2024");
+      expect(sharedElectionRepository.findBySlug).toHaveBeenCalledWith("pilketos-2024");
     });
   });
 });

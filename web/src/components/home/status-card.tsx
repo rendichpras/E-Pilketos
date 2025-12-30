@@ -1,4 +1,4 @@
-import type { Election } from "@/lib/types";
+import type { Election } from "@/shared/types";
 import type { ElectionDisplayStatus } from "./election-utils";
 import { fmtJakarta } from "@/lib/format";
 

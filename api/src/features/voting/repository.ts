@@ -3,7 +3,7 @@ import { db as rootDb } from "../../db/client";
 import type { DbOrTx } from "../../db/types";
 import { elections, candidatePairs, tokens, votes, voterSessions } from "../../db/schema";
 import { redactUsedToken } from "../../utils/tokenRedact";
-import { hashSessionToken } from "../../core/security/session-token";
+import { hashSessionToken } from "../../utils/session";
 
 function useDb(dbOrTx?: DbOrTx): DbOrTx {
   return (dbOrTx ?? rootDb) as DbOrTx;

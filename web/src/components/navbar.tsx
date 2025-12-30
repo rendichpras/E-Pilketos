@@ -18,13 +18,8 @@ import {
 } from "@/components/ui/sheet";
 
 import { apiClient } from "@/lib/api/client";
-import type { PublicActiveElectionResponse } from "@/lib/types";
-
-const navLinks = [
-  { href: "/#kandidat", label: "Kandidat" },
-  { href: "/hasil", label: "Hasil" },
-  { href: "/vote", label: "Mulai Memilih" }
-];
+import type { PublicActiveElectionResponse } from "@/shared/types";
+import { NAV_LINKS } from "@/lib/config/routes";
 
 export function Navbar() {
   const pathname = usePathname() || "/";
@@ -82,7 +77,7 @@ export function Navbar() {
 
         <nav className="hidden items-center gap-4 md:flex">
           <div className="flex items-center gap-1">
-            {navLinks.map((item) => {
+            {NAV_LINKS.map((item) => {
               const isVote = item.href === "/vote";
               const isAnchor = item.href.includes("#");
               const active = isAnchor ? pathname === "/" : pathname.startsWith(item.href);
@@ -155,7 +150,7 @@ export function Navbar() {
 
               <div className="flex flex-1 flex-col justify-between py-6">
                 <nav className="flex flex-col gap-1 px-4">
-                  {navLinks.map((item) => {
+                  {NAV_LINKS.map((item) => {
                     const isAnchor = item.href.includes("#");
                     const active = isAnchor ? pathname === "/" : pathname.startsWith(item.href);
 

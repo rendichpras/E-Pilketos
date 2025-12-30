@@ -7,7 +7,7 @@ import Image from "next/image";
 import { ApiError } from "@/lib/api/client";
 import { voterApi } from "@/lib/api/voter";
 import { cn } from "@/lib/cn";
-import type { CandidatePair, Election } from "@/lib/types";
+import type { CandidatePair, Election } from "@/shared/types";
 import { saveVoteSelection } from "@/lib/vote-selection";
 
 import { ElectionInfo } from "@/components/vote/election-info";

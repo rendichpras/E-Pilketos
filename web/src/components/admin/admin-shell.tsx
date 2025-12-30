@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 
-import type { AdminUser } from "@/lib/types";
+import type { AdminUser } from "@/shared/types";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
